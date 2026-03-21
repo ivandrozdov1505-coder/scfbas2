@@ -604,6 +604,7 @@ select option{background:var(--s2)}
       <div class="sb-stats-row">Расходы <span id="sb-exp">₽0</span></div>
       <div class="sb-stats-row">Прибыль <span id="sb-pro" class="g">₽0</span></div>
       <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
+        <button class="btn btn-ghost" style="font-size:11px;justify-content:center;width:100%;color:var(--yellow)" onclick="openDocumentation()">📘 Документация</button>
         <button class="btn btn-ghost" style="font-size:11px;justify-content:center;width:100%" onclick="openBackupModal()">🗄 Резервные копии</button>
         <button class="btn btn-ghost" style="font-size:11px;justify-content:center;width:100%" onclick="doExport()">💾 Сохранить данные</button>
         <button class="btn btn-ghost" style="font-size:11px;justify-content:center;width:100%;color:var(--green)" onclick="doExportExcel()">📊 Экспорт в Excel</button>
@@ -635,6 +636,7 @@ select option{background:var(--s2)}
         <button class="btn btn-ghost" onclick="doExportCSV('sales')" title="CSV: продажи">CSV Продажи</button>
         <button class="btn btn-ghost" onclick="doExportCSV('purchases')" title="CSV: поставки">CSV Поставки</button>
         <button class="btn btn-ghost" onclick="doExportCSV('stock')" title="CSV: склад">CSV Склад</button>
+        <button class="btn btn-ghost" onclick="openDocumentation()" title="Открыть инструкцию и скачать документацию (.md)" style="color:var(--yellow)">📘 Документация</button>
         <button class="btn btn-ghost" onclick="openBackupModal()" title="Резервные копии" style="color:var(--blue)">🗄 Копии</button>
         <button class="btn btn-ghost" onclick="doPrint()" title="Печать / Сохранить как PDF" style="padding:7px 12px">🖨</button>
       </div>
@@ -2249,6 +2251,52 @@ function deleteFolder(id){
 // ══════════════════════════════════════════════════════
 // EXPORT / IMPORT
 // ══════════════════════════════════════════════════════
+function buildDocumentationText(){
+  return [
+    '# ProfitBox — документация пользователя',
+    '',
+    '## Что умеет сайт',
+    '- Каталог товаров: создание, редактирование, удаление и группировка по папкам.',
+    '- Учёт финансов: опт, розница, расходы, расчёт маржи и прибыли.',
+    '- История операций: продажи и поставки с датами, клиентами/поставщиками и заметками.',
+    '- Склад: остатки, порог минимального остатка и подсветка дефицита.',
+    '- Аналитика: сводные показатели, фильтры периода, графики по операциям.',
+    '- Темы интерфейса: тёмная, сепия, океан, фиолетовая.',
+    '- Резервное копирование: ручные и автосохранённые копии, восстановление и удаление.',
+    '',
+    '## Экспорт и импорт',
+    '- Импорт базы из JSON-файла.',
+    '- Экспорт полной базы в JSON.',
+    '- Экспорт отчёта в Excel (.xls, 4 листа: товары, продажи, поставки, склад).',
+    '- Экспорт CSV по направлениям: продажи, поставки, склад.',
+    '- Печать отчёта / сохранение в PDF через браузер.',
+    '',
+    '## Как пользоваться',
+    '1. Добавьте папки и товары.',
+    '2. Фиксируйте продажи и поставки в соответствующих разделах.',
+    '3. Контролируйте остатки на вкладке «Склад».',
+    '4. Анализируйте динамику на вкладке «Аналитика».',
+    '5. Регулярно сохраняйте JSON-резервные копии.',
+    '',
+    'Дата генерации: '+new Date().toLocaleString('ru-RU')
+  ].join('\n');
+}
+function openDocumentation(){
+  var text=buildDocumentationText();
+  var filename='profitbox_docs_'+isoToday()+'.md';
+  var blob=new Blob([text],{type:'text/markdown;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;
+  a.download=filename;
+  a.click();
+  var win=window.open('','_blank');
+  if(win){
+    win.document.write('<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Документация ProfitBox</title><style>body{font-family:Inter,Segoe UI,Arial,sans-serif;max-width:860px;margin:28px auto;padding:0 16px;line-height:1.6;white-space:pre-wrap;background:#fafafa;color:#1f2937}h1{font-size:28px;margin-bottom:14px}h2{font-size:20px;margin:20px 0 10px}</style></head><body>'+esc(text)+'</body></html>');
+    win.document.close();
+  }
+  setTimeout(function(){URL.revokeObjectURL(url);},1000);
+}
 function doExport(){
   var data={products:products,folders:folders,sales:sales,purchases:purchases,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange};
   var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
