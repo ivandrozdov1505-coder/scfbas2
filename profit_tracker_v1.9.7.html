@@ -78,6 +78,42 @@ body.theme-purple{
   --green:#c084fc;--green2:#a855f7;--greendim:rgba(192,132,252,0.08);
   --text:#ede9fe;--text2:#8b7aa8;--text3:#4a3a6a;
 }
+/* ── RICH RUBY THEME ── */
+body.theme-ruby{
+  --bg:#12040b;--s1:#1d0813;--s2:#2a0f1d;--s3:#37162a;
+  --border:#4b1d37;--border2:#65274b;
+  --green:#ff4f8b;--green2:#e33673;--greendim:rgba(255,79,139,0.1);
+  --red:#ff7aa5;--reddim:rgba(255,122,165,0.1);
+  --yellow:#ffd166;--yellowdim:rgba(255,209,102,0.14);
+  --blue:#9d7dff;--bluedim:rgba(157,125,255,0.12);
+  --purple:#ff6fd8;--purpledim:rgba(255,111,216,0.12);
+  --orange:#ff9a5a;--orangedim:rgba(255,154,90,0.12);
+  --text:#ffe4f1;--text2:#d194b5;--text3:#85506a;
+}
+/* ── RICH EMERALD THEME ── */
+body.theme-emerald{
+  --bg:#03110d;--s1:#071c16;--s2:#0d2820;--s3:#143529;
+  --border:#1d4a39;--border2:#2a664f;
+  --green:#39f6b8;--green2:#1fd39a;--greendim:rgba(57,246,184,0.1);
+  --red:#ff6b87;--reddim:rgba(255,107,135,0.1);
+  --yellow:#ffe16a;--yellowdim:rgba(255,225,106,0.14);
+  --blue:#5ccaff;--bluedim:rgba(92,202,255,0.12);
+  --purple:#b78bff;--purpledim:rgba(183,139,255,0.12);
+  --orange:#ffb06a;--orangedim:rgba(255,176,106,0.12);
+  --text:#ddfff4;--text2:#87c7af;--text3:#4f8d77;
+}
+/* ── RICH SUNSET THEME ── */
+body.theme-sunset{
+  --bg:#15070a;--s1:#21100f;--s2:#2f1813;--s3:#3e2318;
+  --border:#5c3320;--border2:#7a472d;
+  --green:#ff9f43;--green2:#ff7f2f;--greendim:rgba(255,159,67,0.11);
+  --red:#ff5f73;--reddim:rgba(255,95,115,0.1);
+  --yellow:#ffe76a;--yellowdim:rgba(255,231,106,0.15);
+  --blue:#5fb8ff;--bluedim:rgba(95,184,255,0.12);
+  --purple:#d38bff;--purpledim:rgba(211,139,255,0.12);
+  --orange:#ffb366;--orangedim:rgba(255,179,102,0.14);
+  --text:#ffe8d8;--text2:#d2a483;--text3:#8e6449;
+}
 /* ── FULLSCREEN ── */
 body.fullscreen #sidebar{display:none}
 body.fullscreen #toggle-sidebar-btn .ic::before{content:'▶'}
@@ -654,6 +690,9 @@ select option{background:var(--s2)}
           <div class="theme-btn"        id="tbtn-light"  title="Сепия"    style="background:#f4ede1;border:1px solid #bca98d" onclick="setTheme('light')"></div>
           <div class="theme-btn"        id="tbtn-ocean"  title="Океан"    style="background:#040d1a" onclick="setTheme('ocean')"></div>
           <div class="theme-btn"        id="tbtn-purple" title="Фиолет"   style="background:#0a080f;border:1px solid #b47aff" onclick="setTheme('purple')"></div>
+          <div class="theme-btn"        id="tbtn-ruby"   title="Рубин"    style="background:#1d0813;border:1px solid #ff4f8b" onclick="setTheme('ruby')"></div>
+          <div class="theme-btn"        id="tbtn-emerald" title="Изумруд" style="background:#071c16;border:1px solid #39f6b8" onclick="setTheme('emerald')"></div>
+          <div class="theme-btn"        id="tbtn-sunset" title="Закат"    style="background:#21100f;border:1px solid #ff9f43" onclick="setTheme('sunset')"></div>
         </div>
         <div class="flash" id="flash">✓ Сохранено</div>
         <label class="btn btn-ghost" style="cursor:pointer" title="Загрузить данные из JSON-файла">📂 Открыть данные<input type="file" id="imp" accept=".json"></label>
@@ -2054,7 +2093,7 @@ function setTheme(t){
   currentTheme=t;
   document.body.className=document.body.className.replace(/theme-\S+/g,'').trim();
   if(t!=='dark')document.body.classList.add('theme-'+t);
-  ['dark','light','ocean','purple'].forEach(function(name){
+  ['dark','light','ocean','purple','ruby','emerald','sunset'].forEach(function(name){
     var btn=$('tbtn-'+name);
     if(btn)btn.className='theme-btn'+(t===name?' active':'');
   });
