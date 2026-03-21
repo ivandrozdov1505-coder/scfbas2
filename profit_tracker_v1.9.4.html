@@ -6,6 +6,7 @@
 <title>Profit Tracker</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;max-width:100%;overflow-x:hidden}
 :root{
   --bg:#080b10;--s1:#0e1218;--s2:#131820;--s3:#1a2030;
   --border:#1f2736;--border2:#252e3f;
@@ -170,8 +171,9 @@ body.fullscreen #toggle-sidebar-btn .ic::before{content:'▶'}
   body.fullscreen #sidebar{display:flex}
 
   /* CRITICAL: content takes full width since sidebar is off-screen */
-  #app{display:block;width:100%;max-width:100vw;overflow-x:hidden}
-  #content{width:100%;min-width:0;max-width:100vw;overflow-x:hidden}
+  #app{display:block;width:100%;max-width:100vw;overflow-x:hidden;position:relative;left:0}
+  #content{width:100%;min-width:0;max-width:100vw;overflow-x:hidden;position:relative;left:0;margin:0;transform:none}
+  #main{width:100%;max-width:100vw;overflow-x:hidden}
 
   /* If browser forces desktop viewport (e.g. ~980px), still keep one-column mobile flow */
   #main,.toolbar,.form-wrap,.tw,.hist-form,.hist-list,.stock-card,.chart-card{width:100%;max-width:100%}
@@ -296,7 +298,7 @@ body::before{content:'';position:fixed;top:-40vh;left:-20vw;width:70vw;height:70
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-track{background:var(--s1)}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
-#app{display:flex;min-height:100vh}
+#app{display:flex;min-height:100vh;width:100%;max-width:100%}
 
 /* ── SIDEBAR ── */
 #sidebar{width:240px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;z-index:50}
