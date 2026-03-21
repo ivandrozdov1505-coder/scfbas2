@@ -17,21 +17,21 @@
   --orange:#ff8c4d;--orangedim:rgba(255,140,77,0.08);
   --text:#dce6f5;--text2:#8a9bb5;--text3:#4a5568;
 }
-/* ── LIGHT THEME ── */
+/* ── LIGHT / SEPIA THEME ── */
 body.theme-light{
-  --bg:#f0f2f7;--s1:#ffffff;--s2:#f5f7fb;--s3:#ebeef5;
-  --border:#dde2ef;--border2:#c8d0e0;
-  --green:#00a876;--green2:#007a55;--greendim:rgba(0,168,118,0.1);
-  --red:#e0284a;--reddim:rgba(224,40,74,0.08);
-  --yellow:#c48a00;--yellowdim:rgba(196,138,0,0.1);
-  --blue:#2271d4;--bluedim:rgba(34,113,212,0.08);
-  --purple:#7c3aed;--purpledim:rgba(124,58,237,0.08);
-  --orange:#c45e00;--orangedim:rgba(196,94,0,0.08);
-  --text:#1a2236;--text2:#5a6a8a;--text3:#9aaabf;
+  --bg:#f4ede1;--s1:#fbf5e9;--s2:#f2e8d9;--s3:#e8dac5;
+  --border:#d4c3aa;--border2:#bca98d;
+  --green:#2f7f5f;--green2:#215742;--greendim:rgba(47,127,95,0.14);
+  --red:#ad3f44;--reddim:rgba(173,63,68,0.12);
+  --yellow:#9b6f24;--yellowdim:rgba(155,111,36,0.14);
+  --blue:#2e5e9c;--bluedim:rgba(46,94,156,0.12);
+  --purple:#6c4f8d;--purpledim:rgba(108,79,141,0.12);
+  --orange:#a65a2d;--orangedim:rgba(166,90,45,0.12);
+  --text:#2f2418;--text2:#6b5540;--text3:#9b846e;
 }
-body.theme-light::before{background:radial-gradient(ellipse,rgba(0,180,130,0.04) 0%,transparent 70%)}
-body.theme-light #topbar{background:rgba(240,242,247,0.95)}
-body.theme-light .flash{background:rgba(0,168,118,0.12)}
+body.theme-light::before{background:radial-gradient(ellipse,rgba(166,90,45,0.10) 0%,transparent 72%)}
+body.theme-light #topbar{background:rgba(244,237,225,0.96)}
+body.theme-light .flash{background:rgba(47,127,95,0.16)}
 body.theme-light .btn-ghost{background:var(--s3);color:var(--text2);border-color:var(--border2)}
 body.theme-light .btn-ghost:hover{background:var(--border);color:var(--text)}
 body.theme-light input[type=text],
@@ -55,8 +55,8 @@ body.theme-light .mb-n{background:rgba(224,40,74,0.1);color:var(--red)}
 body.theme-light .stock-ok{background:rgba(0,168,118,0.12);color:var(--green)}
 body.theme-light .stock-low{background:rgba(196,138,0,0.1);color:var(--yellow)}
 body.theme-light .stock-out{background:rgba(224,40,74,0.1);color:var(--red)}
-body.theme-light .theme-btn.active{border-color:#1a2236}
-body.theme-light .cp-swatch.selected{border-color:#1a2236}
+body.theme-light .theme-btn.active{border-color:#2f2418}
+body.theme-light .cp-swatch.selected{border-color:#2f2418}
 body.theme-light .modal{background:var(--s1)}
 body.theme-light .date-chip{background:var(--s3);color:var(--text2)}
 body.theme-light .chart-card{background:var(--s1)}
@@ -617,7 +617,7 @@ select option{background:var(--s2)}
         <!-- THEME SWITCHER -->
         <div style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--s3);border-radius:20px;border:1px solid var(--border2)">
           <div class="theme-btn active" id="tbtn-dark"   title="Тёмная"   style="background:#0e1218" onclick="setTheme('dark')"></div>
-          <div class="theme-btn"        id="tbtn-light"  title="Светлая"  style="background:#f0f2f7" onclick="setTheme('light')"></div>
+          <div class="theme-btn"        id="tbtn-light"  title="Сепия"    style="background:#f4ede1;border:1px solid #bca98d" onclick="setTheme('light')"></div>
           <div class="theme-btn"        id="tbtn-ocean"  title="Океан"    style="background:#040d1a" onclick="setTheme('ocean')"></div>
           <div class="theme-btn"        id="tbtn-purple" title="Фиолет"   style="background:#0a080f;border:1px solid #b47aff" onclick="setTheme('purple')"></div>
         </div>
