@@ -158,6 +158,17 @@ body.fullscreen #toggle-sidebar-btn .ic::before{content:'▶'}
 .backup-item-meta{font-size:11px;color:var(--text3);margin-top:2px}
 .backup-auto-badge{font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;background:var(--bluedim);color:var(--blue);flex-shrink:0}
 .backup-manual-badge{font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;background:var(--greendim);color:var(--green);flex-shrink:0}
+/* Documentation modal */
+#docs-modal{display:none;position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,0.78);backdrop-filter:blur(4px);align-items:center;justify-content:center}
+#docs-modal.show{display:flex}
+.docs-box{background:var(--s1);border:1px solid var(--border2);border-radius:16px;padding:24px;width:760px;max-width:94vw;max-height:86vh;overflow-y:auto;position:relative}
+.docs-title{font-size:18px;font-weight:700;color:var(--text)}
+.docs-sub{font-size:12px;color:var(--text3);margin-top:4px;margin-bottom:16px}
+.docs-content{color:var(--text2);font-size:14px;line-height:1.6}
+.docs-content h3{color:var(--text);font-size:15px;margin:14px 0 8px}
+.docs-content ul,.docs-content ol{padding-left:20px;margin-bottom:10px}
+.docs-content li{margin-bottom:5px}
+.docs-hidden-note{position:absolute;left:-9999px;top:auto;font-size:1px;color:transparent;user-select:none}
 
 @media (max-width:1024px) and (pointer:coarse){
   /* Show mobile nav, hide desktop sidebar */
@@ -535,6 +546,21 @@ select option{background:var(--s2)}
   </div>
 </div>
 
+<!-- DOCUMENTATION MODAL -->
+<div id="docs-modal" onclick="closeDocumentation(event)">
+  <div class="docs-box" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px">
+      <div>
+        <div class="docs-title">📘 Документация ProfitBox</div>
+        <div class="docs-sub">Инструкция открывается прямо на сайте</div>
+      </div>
+      <button onclick="closeDocumentation()" style="background:transparent;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:2px 6px;border-radius:6px">✕</button>
+    </div>
+    <div class="docs-content" id="docs-content"></div>
+    <div class="docs-hidden-note">Важно: обновлять эту документацию после каждого нового функционала.</div>
+  </div>
+</div>
+
 <!-- CALENDAR POPUP (persistent, attached to body) -->
 <div id="cal-popup-el" class="cal-popup">
   <div class="cal-header">
@@ -636,7 +662,7 @@ select option{background:var(--s2)}
         <button class="btn btn-ghost" onclick="doExportCSV('sales')" title="CSV: продажи">CSV Продажи</button>
         <button class="btn btn-ghost" onclick="doExportCSV('purchases')" title="CSV: поставки">CSV Поставки</button>
         <button class="btn btn-ghost" onclick="doExportCSV('stock')" title="CSV: склад">CSV Склад</button>
-        <button class="btn btn-ghost" onclick="openDocumentation()" title="Открыть инструкцию и скачать документацию (.md)" style="color:var(--yellow)">📘 Документация</button>
+        <button class="btn btn-ghost" onclick="openDocumentation()" title="Открыть инструкцию на сайте" style="color:var(--yellow)">📘 Документация</button>
         <button class="btn btn-ghost" onclick="openBackupModal()" title="Резервные копии" style="color:var(--blue)">🗄 Копии</button>
         <button class="btn btn-ghost" onclick="doPrint()" title="Печать / Сохранить как PDF" style="padding:7px 12px">🖨</button>
       </div>
@@ -2251,51 +2277,43 @@ function deleteFolder(id){
 // ══════════════════════════════════════════════════════
 // EXPORT / IMPORT
 // ══════════════════════════════════════════════════════
-function buildDocumentationText(){
+function buildDocumentationHtml(){
   return [
-    '# ProfitBox — документация пользователя',
-    '',
-    '## Что умеет сайт',
-    '- Каталог товаров: создание, редактирование, удаление и группировка по папкам.',
-    '- Учёт финансов: опт, розница, расходы, расчёт маржи и прибыли.',
-    '- История операций: продажи и поставки с датами, клиентами/поставщиками и заметками.',
-    '- Склад: остатки, порог минимального остатка и подсветка дефицита.',
-    '- Аналитика: сводные показатели, фильтры периода, графики по операциям.',
-    '- Темы интерфейса: тёмная, сепия, океан, фиолетовая.',
-    '- Резервное копирование: ручные и автосохранённые копии, восстановление и удаление.',
-    '',
-    '## Экспорт и импорт',
-    '- Импорт базы из JSON-файла.',
-    '- Экспорт полной базы в JSON.',
-    '- Экспорт отчёта в Excel (.xls, 4 листа: товары, продажи, поставки, склад).',
-    '- Экспорт CSV по направлениям: продажи, поставки, склад.',
-    '- Печать отчёта / сохранение в PDF через браузер.',
-    '',
-    '## Как пользоваться',
-    '1. Добавьте папки и товары.',
-    '2. Фиксируйте продажи и поставки в соответствующих разделах.',
-    '3. Контролируйте остатки на вкладке «Склад».',
-    '4. Анализируйте динамику на вкладке «Аналитика».',
-    '5. Регулярно сохраняйте JSON-резервные копии.',
-    '',
-    'Дата генерации: '+new Date().toLocaleString('ru-RU')
-  ].join('\n');
+    '<h3>Что это за сервис</h3>',
+    '<p>ProfitBox — это единое рабочее пространство для учёта товаров, продаж, поставок, остатков и прибыли. Все ключевые действия доступны в одном интерфейсе без отдельной установки программ.</p>',
+    '<h3>Основные разделы</h3>',
+    '<ul>',
+      '<li><b>Каталог:</b> создание и редактирование карточек товара, группировка по папкам, управление ценами и расходами.</li>',
+      '<li><b>История:</b> фиксация продаж и поставок с датой, количеством, суммой и дополнительными заметками.</li>',
+      '<li><b>Склад:</b> контроль остатков, порог минимального запаса, подсветка дефицитных позиций.</li>',
+      '<li><b>Аналитика:</b> выручка, расходы, прибыль, динамика по периодам и сравнительные показатели.</li>',
+      '<li><b>Резервные копии:</b> ручное создание копий и восстановление данных при необходимости.</li>',
+    '</ul>',
+    '<h3>Как работать каждый день</h3>',
+    '<ol>',
+      '<li>Добавьте папки и заведите товары с актуальными ценами.</li>',
+      '<li>После каждой продажи фиксируйте операцию во вкладке истории.</li>',
+      '<li>После каждой поставки вносите приход, чтобы остатки обновлялись корректно.</li>',
+      '<li>Проверяйте вкладку «Склад», чтобы не допускать дефицита и своевременно пополнять запас.</li>',
+      '<li>Раз в день открывайте «Аналитику» и отслеживайте прибыль и эффективность ассортимента.</li>',
+    '</ol>',
+    '<h3>Экспорт и сохранность данных</h3>',
+    '<ul>',
+      '<li>Используйте «Сохранить данные», чтобы выгрузить базу в JSON.</li>',
+      '<li>Используйте «Экспорт в Excel» и CSV для отчётности и обмена с бухгалтерией.</li>',
+      '<li>Периодически делайте резервные копии, особенно перед массовыми правками.</li>',
+    '</ul>',
+    '<p style="font-size:12px;color:var(--text3);margin-top:16px">Обновлено: '+new Date().toLocaleString('ru-RU')+'</p>'
+  ].join('');
 }
 function openDocumentation(){
-  var text=buildDocumentationText();
-  var filename='profitbox_docs_'+isoToday()+'.md';
-  var blob=new Blob([text],{type:'text/markdown;charset=utf-8'});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement('a');
-  a.href=url;
-  a.download=filename;
-  a.click();
-  var win=window.open('','_blank');
-  if(win){
-    win.document.write('<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Документация ProfitBox</title><style>body{font-family:Inter,Segoe UI,Arial,sans-serif;max-width:860px;margin:28px auto;padding:0 16px;line-height:1.6;white-space:pre-wrap;background:#fafafa;color:#1f2937}h1{font-size:28px;margin-bottom:14px}h2{font-size:20px;margin:20px 0 10px}</style></head><body>'+esc(text)+'</body></html>');
-    win.document.close();
-  }
-  setTimeout(function(){URL.revokeObjectURL(url);},1000);
+  var wrap=$('docs-content');
+  if(wrap)wrap.innerHTML=buildDocumentationHtml();
+  $('docs-modal').classList.add('show');
+}
+function closeDocumentation(evt){
+  if(evt&&evt.target&&evt.target!==$('docs-modal'))return;
+  $('docs-modal').classList.remove('show');
 }
 function doExport(){
   var data={products:products,folders:folders,sales:sales,purchases:purchases,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange};
