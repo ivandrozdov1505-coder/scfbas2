@@ -159,6 +159,8 @@ body.fullscreen #toggle-sidebar-btn .ic::before{content:'▶'}
 .backup-manual-badge{font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;background:var(--greendim);color:var(--green);flex-shrink:0}
 
 @media(max-width:768px){
+  html,body{max-width:100%;overflow-x:hidden}
+
   /* Show mobile nav, hide desktop sidebar */
   #mobile-nav{display:block}
   #sidebar{
@@ -170,15 +172,18 @@ body.fullscreen #toggle-sidebar-btn .ic::before{content:'▶'}
   body.fullscreen #sidebar{display:flex}
 
   /* CRITICAL: content takes full width since sidebar is off-screen */
-  #app{display:block}
-  #content{width:100%;min-width:0}
+  #app{display:block;width:100%;max-width:100vw;overflow-x:hidden}
+  #content{width:100%;min-width:0;max-width:100vw;overflow-x:hidden}
 
   /* Topbar: compact */
-  #topbar{padding:0 12px;height:50px;gap:8px}
+  #topbar{padding:0 10px;height:50px;gap:8px;min-width:0}
+  #topbar>div{min-width:0}
   .topbar-title{font-size:14px}
   .topbar-sub{display:none}
+  .topbar-r{gap:6px;min-width:0}
   .topbar-r .btn-ghost{display:none}
   .topbar-r .btn-ghost:last-child{display:none}
+  .topbar-r>div{padding:4px 6px!important;gap:5px!important;min-width:0}
   #toggle-sidebar-btn{display:inline-flex!important}
   /* Make toggle button open mobile sidebar */
 
@@ -186,7 +191,7 @@ body.fullscreen #toggle-sidebar-btn .ic::before{content:'▶'}
   #main{padding:12px;gap:12px;padding-bottom:80px}
 
   /* Stats grid: 2 columns */
-  .sg{grid-template-columns:repeat(2,1fr);gap:8px}
+  .sg{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
   .sc{padding:12px 14px}
   .sc-val{font-size:17px}
   .sc-icon{width:26px;height:26px;font-size:12px;margin-bottom:7px}
@@ -200,24 +205,24 @@ body.fullscreen #toggle-sidebar-btn .ic::before{content:'▶'}
 
   /* Product form: 2-column grid */
   .form-body{
-    grid-template-columns:1fr 1fr!important;
+    grid-template-columns:1fr!important;
     gap:10px;padding:14px!important
   }
-  .form-body .fg:first-child{grid-column:1/-1}
+  .form-body .fg{grid-column:1/-1}
   .form-body .fbtns{grid-column:1/-1;flex-direction:row;gap:8px}
   .form-body .fbtns .btn{flex:1;justify-content:center}
 
-  /* History form: 2-column */
+  /* History form: single-column */
   .hist-body{
-    grid-template-columns:1fr 1fr!important;
+    grid-template-columns:1fr!important;
     gap:10px;padding:14px!important
   }
-  .hist-body .fg:first-child{grid-column:1/-1}
+  .hist-body .fg{grid-column:1/-1}
   .hist-body .fbtns{grid-column:1/-1;padding-top:0!important}
   .hist-body .fbtns .btn{width:100%;justify-content:center}
 
   /* Tables: horizontal scroll */
-  .tw,.hist-list,.stock-card{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tw,.hist-list,.stock-card{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
   .thead,.tr,.tfoot{min-width:660px}
   .hist-thead,.hist-tr{min-width:600px}
   .stock-card-head,.stock-row{min-width:560px}
@@ -227,7 +232,7 @@ body.fullscreen #toggle-sidebar-btn .ic::before{content:'▶'}
   /* Analytics */
   .analytics-grid{grid-template-columns:1fr!important}
   .chart-card{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .period-tabs{gap:2px}
+  .period-tabs{gap:2px;overflow:auto;max-width:100%}
   .period-tab{padding:5px 10px;font-size:11px}
   .period-nav-btn{padding:5px 8px}
 
