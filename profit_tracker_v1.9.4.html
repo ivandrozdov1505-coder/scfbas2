@@ -625,6 +625,9 @@ select option{background:var(--s2)}
         <label class="btn btn-ghost" style="cursor:pointer" title="Загрузить данные из JSON-файла">📂 Открыть данные<input type="file" id="imp" accept=".json"></label>
         <button class="btn btn-ghost" onclick="doExport()" title="Сохранить все данные в JSON-файл">💾 Сохранить данные</button>
         <button class="btn btn-ghost" onclick="doExportExcel()" title="Экспорт отчёта в Excel (4 листа)" style="color:var(--green)">📊 Экспорт в Excel</button>
+        <button class="btn btn-ghost" onclick="doExportCSV('sales')" title="CSV: продажи">CSV Продажи</button>
+        <button class="btn btn-ghost" onclick="doExportCSV('purchases')" title="CSV: поставки">CSV Поставки</button>
+        <button class="btn btn-ghost" onclick="doExportCSV('stock')" title="CSV: склад">CSV Склад</button>
         <button class="btn btn-ghost" onclick="openBackupModal()" title="Резервные копии" style="color:var(--blue)">🗄 Копии</button>
         <button class="btn btn-ghost" onclick="doPrint()" title="Печать / Сохранить как PDF" style="padding:7px 12px">🖨</button>
       </div>
@@ -653,6 +656,10 @@ var analyticsMonth=new Date().getMonth();
 var analyticsYear=new Date().getFullYear();
 var discountType='currency'; // 'currency' | 'percent'
 var quickSellProdId=null;
+var analyticsRange={mode:'30d',from:'',to:''}; // today|7d|30d|custom
+var historyFilters={productId:'',folderId:'',from:'',to:'',type:'all',sort:'date_desc'};
+var stockFilters={folderId:'all',problemOnly:false,groupByFolder:false,sort:'stock_asc'};
+var lastDeletedAction=null;
 
 // ══════════════════════════════════════════════════════
 // UTILS
@@ -664,6 +671,79 @@ var fmtP=function(n){return(n>=0?'+':'')+n.toFixed(1)+'%'};
 var esc=function(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')};
 var productById=function(id){for(var i=0;i<products.length;i++)if(products[i].id===id)return products[i];return null};
 var folderById=function(id){for(var i=0;i<folders.length;i++)if(folders[i].id===id)return folders[i];return null};
+var clampNum=function(n,min){return isNaN(n)?min:Math.max(min,n)};
+var isValidDateStr=function(s){return /^\d{4}-\d{2}-\d{2}$/.test(String(s||''))};
+var isoToday=function(){return new Date().toISOString().slice(0,10)};
+var parseISO=function(s){if(!isValidDateStr(s))return null;var d=new Date(s+'T00:00:00');return isNaN(d.getTime())?null:d;};
+var normalizeDate=function(s){return isValidDateStr(s)?s:isoToday();};
+var productArticle=function(p){return String(p.article||'').toLowerCase();};
+function defaultStockSortValue(p,key){
+  var stock=p.stock||0;
+  if(key==='qty')return stock;
+  if(key==='wholesale')return p.wholesale||0;
+  if(key==='retail')return p.retail||0;
+  if(key==='stockWholesale')return stock*(p.wholesale||0);
+  if(key==='stockRetail')return stock*(p.retail||0);
+  return stock;
+}
+function getActualProfitForSale(s,p){
+  if(typeof s.profitAtSale==='number')return s.profitAtSale;
+  return (s.qty*(s.price||0))-(s.qty*((typeof s.costAtSale==='number'?s.costAtSale:(p?p.wholesale:0))));
+}
+function computeSaleSnapshot(p,qty,basePrice,finalPrice,discountPercent){
+  var revenue=qty*finalPrice;
+  var costAtSale=Number(p.wholesale)||0;
+  var retailAtSale=Number(basePrice)||0;
+  var discountAtSale=Number(discountPercent)||0;
+  var profitAtSale=revenue-(qty*costAtSale);
+  return {costAtSale:costAtSale,retailAtSale:retailAtSale,discountAtSale:discountAtSale,profitAtSale:profitAtSale};
+}
+function recalcStockFromHistory(){
+  var soldMap={}, purchasedMap={};
+  sales.forEach(function(s){soldMap[s.productId]=(soldMap[s.productId]||0)+(Number(s.qty)||0);});
+  purchases.forEach(function(pu){purchasedMap[pu.productId]=(purchasedMap[pu.productId]||0)+(Number(pu.qty)||0);});
+  products.forEach(function(p){
+    var current=Number(p.qty)||0;
+    var sold=soldMap[p.id]||0;
+    p.stock=Math.max(0,current-sold);
+  });
+}
+function migrateData(){
+  products.forEach(function(p){
+    if(p.stock===undefined)p.stock=Number(p.qty)||0;
+    if(p.minStock===undefined)p.minStock=5;
+    if(p.notes===undefined)p.notes='';
+    if(p.article===undefined)p.article='';
+    if(p.image===undefined)p.image='';
+    p.qty=clampNum(parseInt(p.qty),0);
+    p.stock=clampNum(parseInt(p.stock),0);
+    p.minStock=clampNum(parseInt(p.minStock),0);
+    p.wholesale=clampNum(parseFloat(p.wholesale),0);
+    p.retail=clampNum(parseFloat(p.retail),0);
+    p.expenses=clampNum(parseFloat(p.expenses||0),0);
+  });
+  sales.forEach(function(s){
+    var p=productById(s.productId);
+    s.date=normalizeDate(s.date);
+    s.qty=clampNum(parseInt(s.qty),1);
+    s.price=clampNum(parseFloat(s.price),0);
+    s.discount=clampNum(parseFloat(s.discount||0),0);
+    if(s.note===undefined)s.note='';
+    if(s.customer===undefined)s.customer='';
+    if(typeof s.costAtSale!=='number')s.costAtSale=p?Number(p.wholesale)||0:0;
+    if(typeof s.retailAtSale!=='number')s.retailAtSale=s.price;
+    if(typeof s.discountAtSale!=='number')s.discountAtSale=s.discount||0;
+    if(typeof s.profitAtSale!=='number')s.profitAtSale=(s.qty*s.price)-(s.qty*s.costAtSale);
+  });
+  purchases.forEach(function(pu){
+    pu.date=normalizeDate(pu.date);
+    pu.qty=clampNum(parseInt(pu.qty),1);
+    pu.price=clampNum(parseFloat(pu.price),0);
+    if(pu.note===undefined)pu.note='';
+    if(pu.supplier===undefined)pu.supplier='';
+  });
+  recalcStockFromHistory();
+}
 var calcFor=function(list){
   var rev=0,cost=0,exp=0,profit=0;
   for(var i=0;i<list.length;i++){var p=list[i];rev+=p.retail*p.qty;cost+=p.wholesale*p.qty;exp+=p.expenses;profit+=(p.retail-p.wholesale)*p.qty-p.expenses;}
@@ -671,7 +751,13 @@ var calcFor=function(list){
 };
 var filteredProducts=function(){
   var list=selectedFolder===null?products:products.filter(function(p){return p.folderId===selectedFolder;});
-  if(searchQuery){var q=searchQuery.toLowerCase();list=list.filter(function(p){return p.name.toLowerCase().indexOf(q)>=0;});}
+  if(searchQuery){
+    var q=searchQuery.toLowerCase();
+    list=list.filter(function(p){
+      var f=p.folderId?folderById(p.folderId):null;
+      return p.name.toLowerCase().indexOf(q)>=0||productArticle(p).indexOf(q)>=0||(f&&f.name.toLowerCase().indexOf(q)>=0);
+    });
+  }
   if(sortCol){
     list=list.slice().sort(function(a,b){
       var av,bv;
@@ -694,7 +780,7 @@ var filteredProducts=function(){
 // STORAGE
 // ══════════════════════════════════════════════════════
 function persist(){
-  try{localStorage.setItem('ptv5',JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,theme:currentTheme,discountType:discountType}));}catch(e){}
+  try{localStorage.setItem('ptv5',JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange}));}catch(e){}
   var f=$('flash');if(f){f.classList.add('on');setTimeout(function(){f.classList.remove('on');},1500);}
   liveUpdate();
 }
@@ -706,11 +792,11 @@ function loadData(){
     if(raw){
       var d=JSON.parse(raw);
       if(Array.isArray(d)){products=d;folders=[];sales=[];purchases=[];}
-      else{products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;if(d.theme)currentTheme=d.theme;if(d.discountType)discountType=d.discountType;}
+      else{products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;if(d.theme)currentTheme=d.theme;if(d.discountType)discountType=d.discountType;if(d.analyticsRange)analyticsRange=d.analyticsRange;}
     }
   }catch(e){}
-  products.forEach(function(p){if(p.stock===undefined)p.stock=p.qty;if(p.minStock===undefined)p.minStock=5;if(p.notes===undefined)p.notes='';});
-  try{localStorage.setItem('ptv5',JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,theme:currentTheme}));}catch(e){}
+  migrateData();
+  try{localStorage.setItem('ptv5',JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange}));}catch(e){}
 }
 
 // ══════════════════════════════════════════════════════
@@ -815,6 +901,7 @@ function renderProducts(){
     '<div class="form-head"><div class="fh-dot" id="fdot"></div><div class="fh-title" id="ftitle">Добавить товар</div><div class="fh-sub">Enter — быстрое добавление</div></div>'+
     '<div class="form-body">'+
       '<div class="fg"><label class="fl">Название</label><input type="text" id="fn" placeholder="Название товара..."></div>'+
+      '<div class="fg"><label class="fl">Артикул/код</label><input type="text" id="farticle" placeholder="SKU-001"></div>'+
       '<div class="fg"><label class="fl">Опт (₽)</label><input type="number" id="fw" min="0" step="0.01" placeholder="0.00"></div>'+
       '<div class="fg"><label class="fl">Розница (₽)</label><input type="number" id="fr" min="0" step="0.01" placeholder="0.00"></div>'+
       '<div class="fg"><label class="fl">Кол-во</label><input type="number" id="fq" min="1" step="1" placeholder="1"></div>'+
@@ -822,7 +909,7 @@ function renderProducts(){
       '<div class="fg"><label class="fl">Папка</label><select id="fcat"><option value="">— Без папки —</option></select></div>'+
       '<div class="fbtns"><button class="btn btn-primary" id="badd" onclick="doAdd()">＋ Добавить</button><button class="btn btn-danger" id="bcan" style="display:none" onclick="doCancel()">Отмена</button></div>'+
     '</div>'+
-    '<div style="padding:0 20px 16px"><div class="fg"><label class="fl">Заметка (необязательно)</label><textarea class="notes-area" id="fnotes" placeholder="Поставщик, ссылка, условия..."></textarea></div></div>';
+    '<div style="padding:0 20px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="fg"><label class="fl">Заметка (необязательно)</label><textarea class="notes-area" id="fnotes" placeholder="Поставщик, ссылка, условия..."></textarea></div><div class="fg"><label class="fl">Изображение (URL/base64, необязательно)</label><textarea class="notes-area" id="fimage" placeholder="https://... или data:image/..."></textarea></div></div>';
   main.appendChild(formDiv);
 
   // Populate folders select
@@ -831,7 +918,7 @@ function renderProducts(){
   if(selectedFolder!==null&&!editId)sel.value=selectedFolder;
 
   // Bind enter keys
-  ['fn','fw','fr','fq','fe'].forEach(function(id){
+  ['fn','farticle','fw','fr','fq','fe'].forEach(function(id){
     var el=formDiv.querySelector('#'+id);
     if(el)el.addEventListener('keydown',function(e){if(e.key==='Enter')doAdd();});
   });
@@ -839,7 +926,7 @@ function renderProducts(){
   // TOOLBAR
   var tb=document.createElement('div');tb.className='toolbar anim';
   tb.innerHTML=
-    '<div class="search-wrap"><span class="search-icon">🔍</span><input type="text" id="search-input" placeholder="Поиск по названию..." value="'+esc(searchQuery)+'" style="padding-left:34px"></div>'+
+    '<div class="search-wrap"><span class="search-icon">🔍</span><input type="text" id="search-input" placeholder="Поиск: название/папка/код..." value="'+esc(searchQuery)+'" style="padding-left:34px"></div>'+
     '<div class="sort-info">'+(sortCol?'Сортировка: '+sortCol+(sortDir==='asc'?' ↑':' ↓'):'Без сортировки')+'</div>'+
     (sortCol?'<button class="btn btn-ghost" style="font-size:11px;padding:7px 12px" onclick="clearSort()">✕ Сброс</button>':'');
   main.appendChild(tb);
@@ -874,12 +961,14 @@ function renderProducts(){
     var ep=productById(editId);
     if(ep){
       formDiv.querySelector('#fn').value=ep.name;
+      formDiv.querySelector('#farticle').value=ep.article||'';
       formDiv.querySelector('#fw').value=ep.wholesale;
       formDiv.querySelector('#fr').value=ep.retail;
       formDiv.querySelector('#fq').value=ep.qty;
       formDiv.querySelector('#fe').value=ep.expenses;
       formDiv.querySelector('#fcat').value=ep.folderId||'';
       var fn2=formDiv.querySelector('#fnotes');if(fn2)fn2.value=ep.notes||'';
+      var fi2=formDiv.querySelector('#fimage');if(fi2)fi2.value=ep.image||'';
       formDiv.querySelector('#badd').textContent='💾 Сохранить';
       formDiv.querySelector('#badd').className='btn btn-warn';
       formDiv.querySelector('#bcan').style.display='';
@@ -914,7 +1003,7 @@ function renderTable(list,t){
     var stockColor=stockVal===0?'var(--red)':stockVal<=(p.minStock||5)?'var(--yellow)':'var(--green)';
     row.innerHTML=
       '<div class="rnum">'+(i+1)+'</div>'+
-      '<div class="rname" title="'+esc(p.name)+'">'+esc(p.name)+'</div>'+
+      '<div class="rname" title="'+esc(p.name)+'">'+esc(p.name)+(p.article?'<div style="font-size:10px;color:var(--text3)">#'+esc(p.article)+'</div>':'')+'</div>'+
       '<div>'+folderCell+'</div>'+
       '<div class="rcell">₽'+fmtD(p.wholesale)+'</div>'+
       '<div class="rcell">₽'+fmtD(p.retail)+'</div>'+
@@ -922,7 +1011,7 @@ function renderTable(list,t){
       '<div class="rcell">₽'+fmtD(p.expenses)+'</div>'+
       '<div class="pcell"><span style="color:'+pc+';font-weight:700">'+(pr>=0?'+':'−')+'₽'+fmtD(Math.abs(pr))+'</span><span class="mb '+(m>=0?'mb-p':'mb-n')+'">'+fmtP(m)+'</span></div>'+
       '<div style="font-weight:700;color:'+stockColor+';font-size:14px">'+stockVal+'<span style="font-size:10px;font-weight:400;color:var(--text3);margin-left:2px">шт</span></div>'+
-      '<div>'+noteCell+'</div>'+
+      '<div>'+(p.image?'<img src="'+esc(p.image)+'" alt="" style="width:26px;height:26px;object-fit:cover;border-radius:6px;border:1px solid var(--border);vertical-align:middle;margin-right:4px">':'')+noteCell+'</div>'+
       '<div style="display:flex;gap:4px"><button class="bico" style="color:var(--green);border-color:rgba(0,255,179,0.15);font-size:11px" onclick="quickSell('+p.id+')" title="Быстрая продажа">💸</button><button class="bico bico-e" onclick="doEdit('+p.id+')" title="Ред.">✎</button><button class="bico" style="color:var(--blue);border-color:rgba(77,159,255,0.15);font-size:11px" onclick="doDuplicate('+p.id+')" title="Дублировать">⧉</button><button class="bico bico-d" onclick="doDel('+p.id+')" title="Удал.">✕</button></div>';
     tbody.appendChild(row);
   });
@@ -935,6 +1024,26 @@ function renderTable(list,t){
 // ══════════════════════════════════════════════════════
 // ANALYTICS TAB
 // ══════════════════════════════════════════════════════
+function saleInSelectedRange(s){
+  var d=parseISO(s.date);if(!d)return false;
+  var today=parseISO(isoToday());
+  if(analyticsRange.mode==='today')return s.date===isoToday();
+  if(analyticsRange.mode==='7d' || analyticsRange.mode==='30d'){
+    var days=analyticsRange.mode==='7d'?7:30;
+    var from=new Date(today);from.setDate(from.getDate()-(days-1));
+    return d>=from&&d<=today;
+  }
+  var fromC=parseISO(analyticsRange.from),toC=parseISO(analyticsRange.to);
+  if(!fromC||!toC)return true;
+  if(fromC>toC){var tmp=fromC;fromC=toC;toC=tmp;}
+  return d>=fromC&&d<=toC;
+}
+function rangeLabel(){
+  if(analyticsRange.mode==='today')return 'Сегодня';
+  if(analyticsRange.mode==='7d')return 'Последние 7 дней';
+  if(analyticsRange.mode==='30d')return 'Последние 30 дней';
+  return (analyticsRange.from||'...')+' → '+(analyticsRange.to||'...');
+}
 function renderAnalytics(){
   $('page-title').textContent='Аналитика';
   $('page-sub').textContent='Графики и статистика';
@@ -955,6 +1064,12 @@ function renderAnalytics(){
   if(analyticsPeriod==='month') periodLabel=MONTHS[analyticsMonth]+' '+analyticsYear;
   else if(analyticsPeriod==='year') periodLabel=String(analyticsYear);
   periodDiv.innerHTML=
+    '<div class="period-tabs" style="margin-right:4px">'+
+      '<button class="period-tab'+(analyticsRange.mode==='today'?' active':'')+'" onclick="setDashboardRange(\'today\')">Сегодня</button>'+
+      '<button class="period-tab'+(analyticsRange.mode==='7d'?' active':'')+'" onclick="setDashboardRange(\'7d\')">7 дней</button>'+
+      '<button class="period-tab'+(analyticsRange.mode==='30d'?' active':'')+'" onclick="setDashboardRange(\'30d\')">30 дней</button>'+
+      '<button class="period-tab'+(analyticsRange.mode==='custom'?' active':'')+'" onclick="setDashboardRange(\'custom\')">Период</button>'+
+    '</div>'+
     '<div class="period-tabs">'+
       '<button class="period-tab'+(analyticsPeriod==='all'?' active':'')+'" onclick="setPeriod(\'all\')">Всё время</button>'+
       '<button class="period-tab'+(analyticsPeriod==='month'?' active':'')+'" onclick="setPeriod(\'month\')">Месяц</button>'+
@@ -966,11 +1081,17 @@ function renderAnalytics(){
         '<div class="period-label">'+periodLabel+'</div>'+
         '<button class="period-nav-btn" onclick="shiftPeriod(1)">›</button>'+
       '</div>':''
-    );
+    )+
+    '<div style="display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap">'+
+      '<input type="date" value="'+(analyticsRange.from||'')+'" onchange="setDashboardCustom(0,this.value)" style="'+(analyticsRange.mode==='custom'?'':'opacity:.6')+'">'+
+      '<input type="date" value="'+(analyticsRange.to||'')+'" onchange="setDashboardCustom(1,this.value)" style="'+(analyticsRange.mode==='custom'?'':'opacity:.6')+'">'+
+      '<span style="font-size:11px;color:var(--text3)">'+rangeLabel()+'</span>'+
+    '</div>';
   main.appendChild(periodDiv);
 
   // ── FILTER SALES BY PERIOD ──
   var filteredSales=sales.filter(function(s){
+    if(!saleInSelectedRange(s))return false;
     if(analyticsPeriod==='all') return true;
     var d=new Date(s.date);
     if(analyticsPeriod==='year') return d.getFullYear()===analyticsYear;
@@ -982,11 +1103,16 @@ function renderAnalytics(){
   filteredSales.forEach(function(s){
     var p=productById(s.productId);if(!p)return;
     salesRev+=s.qty*s.price;
-    salesProfit+=s.qty*(s.price-p.wholesale);
+    salesProfit+=getActualProfitForSale(s,p);
     salesQty+=s.qty;
   });
 
   var allT=calcFor(products);
+  var purchaseInRange=purchases.filter(function(pu){return saleInSelectedRange({date:pu.date});});
+  var purchaseExpenses=purchaseInRange.reduce(function(sum,pu){return sum+(pu.qty*pu.price);},0);
+  var potentialProfit=products.reduce(function(sum,p){return sum+((p.retail-p.wholesale)*(p.stock||0));},0);
+  var actualProfit=salesRev?0:0;
+  filteredSales.forEach(function(s){actualProfit+=typeof s.profitAtSale==='number'?s.profitAtSale:getActualProfitForSale(s,productById(s.productId));});
 
   // ── PERIOD COMPARISON ──
   var prevSales=[];
@@ -998,7 +1124,7 @@ function renderAnalytics(){
     prevSales=sales.filter(function(s){var d=new Date(s.date);return d.getFullYear()===analyticsYear-1;});
   }
   var prevRev=0,prevProfit=0;
-  prevSales.forEach(function(s){var p=productById(s.productId);if(!p)return;prevRev+=s.qty*s.price;prevProfit+=s.qty*(s.price-p.wholesale);});
+  prevSales.forEach(function(s){var p=productById(s.productId);if(!p)return;prevRev+=s.qty*s.price;prevProfit+=getActualProfitForSale(s,p);});
   var revDelta=prevRev>0?Math.round((salesRev-prevRev)/prevRev*100):null;
   var profitDelta=prevProfit>0?Math.round((salesProfit-prevProfit)/prevProfit*100):null;
   var avgCheck=filteredSales.length>0?Math.round(salesRev/filteredSales.length*100)/100:0;
@@ -1015,9 +1141,26 @@ function renderAnalytics(){
   periodCards.innerHTML=
     '<div class="sc blue"><div class="sc-icon">🛒</div><div class="sc-label">Продаж</div><div class="sc-val">'+filteredSales.length+'</div><div class="sc-sub">'+salesQty+' единиц товара</div></div>'+
     '<div class="sc" style="background:var(--s1);border-color:var(--border)"><div class="sc-icon" style="background:var(--purpledim)">💰</div><div class="sc-label">Выручка продаж</div><div class="sc-val" style="color:var(--purple)">₽'+fmt(salesRev)+'</div><div class="sc-sub">'+deltaTag(revDelta)+(revDelta!==null?'к прошлому периоду':'По истории продаж')+'</div></div>'+
-    '<div class="sc '+(salesProfit>=0?'green-state':'red-state')+'"><div class="sc-icon">'+(salesProfit>=0?'📈':'📉')+'</div><div class="sc-label">Прибыль продаж</div><div class="sc-val" style="color:'+(salesProfit>=0?'var(--green)':'var(--red)')+'">₽'+fmt(Math.abs(salesProfit))+'</div><div class="sc-sub">'+deltaTag(profitDelta)+(profitDelta!==null?'к прошлому периоду':(salesProfit>=0?'Доход':'Убыток')+' за период')+'</div></div>'+
+    '<div class="sc '+(actualProfit>=0?'green-state':'red-state')+'"><div class="sc-icon">'+(actualProfit>=0?'📈':'📉')+'</div><div class="sc-label">Факт. прибыль</div><div class="sc-val" style="color:'+(actualProfit>=0?'var(--green)':'var(--red)')+'">₽'+fmt(Math.abs(actualProfit))+'</div><div class="sc-sub">'+deltaTag(profitDelta)+(profitDelta!==null?'к прошлому периоду':(actualProfit>=0?'Доход':'Убыток')+' за период')+'</div></div>'+
     '<div class="sc orange"><div class="sc-icon">💎</div><div class="sc-label">Маржа</div><div class="sc-val" style="color:var(--orange)">'+(salesRev>0?Math.round(salesProfit/salesRev*100):0)+'%</div><div class="sc-sub">По продажам периода</div></div>';
   main.appendChild(periodCards);
+
+  var finance=document.createElement('div');finance.className='sg anim';
+  finance.innerHTML=
+    '<div class="sc purple"><div class="sc-icon">🧾</div><div class="sc-label">Закупки периода</div><div class="sc-val">₽'+fmt(purchaseExpenses)+'</div><div class="sc-sub">'+purchaseInRange.length+' операций</div></div>'+
+    '<div class="sc blue"><div class="sc-icon">🎯</div><div class="sc-label">Потенц. прибыль</div><div class="sc-val">₽'+fmt(potentialProfit)+'</div><div class="sc-sub">По текущему остатку</div></div>'+
+    '<div class="sc yellow"><div class="sc-icon">🧮</div><div class="sc-label">Средний чек</div><div class="sc-val">₽'+fmt(avgCheck)+'</div><div class="sc-sub">За выбранный период</div></div>'+
+    '<div class="sc '+((salesRev-purchaseExpenses)>=0?'green':'red')+'"><div class="sc-icon">🏦</div><div class="sc-label">Net результат</div><div class="sc-val">'+((salesRev-purchaseExpenses)>=0?'+':'−')+'₽'+fmt(Math.abs(salesRev-purchaseExpenses))+'</div><div class="sc-sub">Выручка − закупки</div></div>';
+  main.appendChild(finance);
+  var custMap={},supMap={};
+  sales.forEach(function(s){if(!s.customer)return;custMap[s.customer]=(custMap[s.customer]||0)+1;});
+  purchases.forEach(function(pu){if(!pu.supplier)return;supMap[pu.supplier]=(supMap[pu.supplier]||0)+(pu.qty*pu.price);});
+  var bestCustomer=Object.keys(custMap).sort(function(a,b){return custMap[b]-custMap[a];})[0]||'—';
+  var bestSupplier=Object.keys(supMap).sort(function(a,b){return supMap[b]-supMap[a];})[0]||'—';
+  var rel=document.createElement('div');rel.className='tw anim';
+  rel.innerHTML='<div style="padding:10px 14px;border-bottom:1px solid var(--border);font-weight:700">Клиенты и поставщики</div>'+
+    '<div style="padding:10px 14px;font-size:12px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span>Повторных клиентов: <b>'+Object.keys(custMap).length+'</b></span><span>Топ клиент: <b>'+esc(bestCustomer)+'</b></span><span>Поставщиков: <b>'+Object.keys(supMap).length+'</b></span><span>Крупнейший поставщик: <b>'+esc(bestSupplier)+'</b></span></div>';
+  main.appendChild(rel);
 
   // AVG CHECK ROW
   var avgRow=document.createElement('div');avgRow.className='sg anim';
@@ -1036,7 +1179,7 @@ function renderAnalytics(){
       var iso2=analyticsYear+'-'+String(analyticsMonth+1).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
       var ds=filteredSales.filter(function(s){return s.date===iso2;});
       var dr=0,dp=0;
-      ds.forEach(function(s){var p=productById(s.productId);if(!p)return;dr+=s.qty*s.price;dp+=s.qty*(s.price-p.wholesale);});
+      ds.forEach(function(s){var p=productById(s.productId);if(!p)return;dr+=s.qty*s.price;dp+=getActualProfitForSale(s,p);});
       dailyData.push({day:dd,rev:dr,profit:dp,cnt:ds.length});
     }
     var maxDV=1;dailyData.forEach(function(d){if(Math.abs(d.profit)>maxDV)maxDV=Math.abs(d.profit);if(d.rev>maxDV)maxDV=d.rev;});
@@ -1068,7 +1211,7 @@ function renderAnalytics(){
     for(var m=0;m<12;m++){
       var ms=sales.filter(function(s){var d=new Date(s.date);return d.getFullYear()===displayYear&&d.getMonth()===m;});
       var mr=0,mp=0;
-      ms.forEach(function(s){var p=productById(s.productId);if(!p)return;mr+=s.qty*s.price;mp+=s.qty*(s.price-p.wholesale);});
+      ms.forEach(function(s){var p=productById(s.productId);if(!p)return;mr+=s.qty*s.price;mp+=getActualProfitForSale(s,p);});
       monthly.push({month:m,rev:mr,profit:mp,cnt:ms.length});
     }
     var maxVal=1;monthly.forEach(function(m){if(Math.abs(m.profit)>maxVal)maxVal=Math.abs(m.profit);if(m.rev>maxVal)maxVal=m.rev;});
@@ -1097,7 +1240,7 @@ function renderAnalytics(){
     var p=productById(s.productId);if(!p)return;
     if(!prodSalesMap[p.id])prodSalesMap[p.id]={p:p,revenue:0,profit:0,qty:0};
     prodSalesMap[p.id].revenue+=s.qty*s.price;
-    prodSalesMap[p.id].profit+=s.qty*(s.price-p.wholesale);
+    prodSalesMap[p.id].profit+=getActualProfitForSale(s,p);
     prodSalesMap[p.id].qty+=s.qty;
   });
   var topSales=Object.values(prodSalesMap).sort(function(a,b){return b.profit-a.profit;}).slice(0,5);
@@ -1153,6 +1296,19 @@ function shiftPeriod(dir){
   }
   render();
 }
+function setDashboardRange(mode){
+  analyticsRange.mode=mode;
+  if(mode==='today'){analyticsRange.from=isoToday();analyticsRange.to=isoToday();}
+  if(mode==='7d' || mode==='30d'){analyticsRange.from='';analyticsRange.to='';}
+  render();
+}
+function setDashboardCustom(idx,val){
+  analyticsRange.mode='custom';
+  if(idx===0)analyticsRange.from=val;
+  else analyticsRange.to=val;
+  persist();
+  render();
+}
 
 function buildDonut(parts){
   var r=60,cx=80,cy=80,stroke=18;
@@ -1199,12 +1355,52 @@ function renderHistory(){
       '<button class="hist-sw-btn'+(!isSales?' active':'')+'" onclick="switchHistTab(\'purchases\')">📥 Поставки <span class="ct">'+purchases.length+'</span></button>'+
     '</div>';
   main.appendChild(sw);
+  var filterBar=document.createElement('div');filterBar.className='toolbar anim';
+  var prodOpts='<option value="">Все товары</option>';
+  products.forEach(function(p){prodOpts+='<option value="'+p.id+'"'+(String(historyFilters.productId)===String(p.id)?' selected':'')+'>'+esc(p.name)+'</option>';});
+  var folderOpts='<option value="">Все папки</option>';
+  folders.forEach(function(f){folderOpts+='<option value="'+f.id+'"'+(String(historyFilters.folderId)===String(f.id)?' selected':'')+'>'+esc(f.name)+'</option>';});
+  filterBar.innerHTML=
+    '<select id="hf-type"><option value="all">Все операции</option><option value="sales">Продажи</option><option value="purchases">Поставки</option></select>'+
+    '<select id="hf-product">'+prodOpts+'</select>'+
+    '<select id="hf-folder">'+folderOpts+'</select>'+
+    '<input type="date" id="hf-from" value="'+(historyFilters.from||'')+'" title="С даты">'+
+    '<input type="date" id="hf-to" value="'+(historyFilters.to||'')+'" title="По дату">'+
+    '<select id="hf-sort"><option value="date_desc">Дата ↓</option><option value="date_asc">Дата ↑</option><option value="amount_desc">Сумма ↓</option><option value="qty_desc">Кол-во ↓</option><option value="profit_desc">Прибыль ↓</option></select>'+
+    '<button class="btn btn-ghost" onclick="resetHistoryFilters()">Сброс</button>';
+  main.appendChild(filterBar);
+  $('hf-type').value=historyFilters.type||'all';
+  $('hf-sort').value=historyFilters.sort||'date_desc';
+  ['hf-type','hf-product','hf-folder','hf-from','hf-to','hf-sort'].forEach(function(id){
+    var el=$(id);if(!el)return;
+    el.addEventListener('change',function(){
+      historyFilters.type=$('hf-type').value;
+      historyFilters.productId=$('hf-product').value;
+      historyFilters.folderId=$('hf-folder').value;
+      historyFilters.from=$('hf-from').value;
+      historyFilters.to=$('hf-to').value;
+      historyFilters.sort=$('hf-sort').value;
+      if(historyFilters.type==='sales'&&historyTab!=='sales')historyTab='sales';
+      if(historyFilters.type==='purchases'&&historyTab!=='purchases')historyTab='purchases';
+      render();
+    });
+  });
 
   // FORM
   var formDiv=document.createElement('div');formDiv.className='hist-form anim';
   var prodOptions='<option value="">— Выберите товар —</option>';
   products.forEach(function(p){prodOptions+='<option value="'+p.id+'">'+esc(p.name)+'</option>';});
 
+  var fromD=parseISO(historyFilters.from),toD=parseISO(historyFilters.to);
+  function matchCommon(item,prodId){
+    if(historyFilters.productId && String(prodId)!==String(historyFilters.productId))return false;
+    var p=productById(prodId);
+    if(historyFilters.folderId && (!p || String(p.folderId||'')!==String(historyFilters.folderId)))return false;
+    var d=parseISO(item.date);if(!d)return false;
+    if(fromD&&d<fromD)return false;
+    if(toD&&d>toD)return false;
+    return true;
+  }
   if(isSales){
     var discLabel=discountType==='currency'?'Скидка (₽)':'Скидка (%)';
     var discPlaceholder=discountType==='currency'?'0.00':'0';
@@ -1225,7 +1421,11 @@ function renderHistory(){
           '</div>'+
         '</div>'+
         '<div class="fg"><label class="fl">Дата</label><input type="date" id="hs-date" value="'+today+'"></div>'+
-        '<div class="fbtns" style="padding-top:22px"><button class="btn btn-primary" onclick="addSale()">＋ Продажа</button></div>'+
+        '<div class="fbtns" style="padding-top:22px"><button class="btn btn-primary" id="sale-submit-btn" onclick="addSale()">＋ Продажа</button></div>'+
+      '</div>'+
+      '<div class="hist-body" style="padding-top:0;grid-template-columns:1fr 1fr">'+
+        '<div class="fg"><label class="fl">Клиент (необязательно)</label><input type="text" id="hs-customer" placeholder="Имя/тег клиента"></div>'+
+        '<div class="fg"><label class="fl">Комментарий</label><input type="text" id="hs-note" placeholder="Причина скидки, примечание..."></div>'+
       '</div>'+
       '<div id="sale-preview" style="padding:0 20px 14px;font-size:12px;color:var(--text3);min-height:22px"></div>';
   } else {
@@ -1237,6 +1437,10 @@ function renderHistory(){
         '<div class="fg"><label class="fl">Цена закупки (₽)</label><input type="number" id="hp-price" min="0" step="0.01" placeholder="Авто"></div>'+
         '<div class="fg"><label class="fl">Дата</label><input type="date" id="hp-date" value="'+today+'"></div>'+
         '<div class="fbtns" style="padding-top:22px"><button class="btn btn-blue" onclick="addPurchase()">＋ Поставка</button></div>'+
+      '</div>'+
+      '<div class="hist-body" style="padding-top:0;grid-template-columns:1fr 1fr">'+
+        '<div class="fg"><label class="fl">Поставщик (необязательно)</label><input type="text" id="hp-supplier" placeholder="Название поставщика"></div>'+
+        '<div class="fg"><label class="fl">Комментарий</label><input type="text" id="hp-note" placeholder="Условия, номер счета..."></div>'+
       '</div>';
   }
   main.appendChild(formDiv);
@@ -1252,12 +1456,12 @@ function renderHistory(){
 
   if(isSales){
     if(sales.length===0){listDiv.innerHTML='<div class="empty"><div class="empty-icon">📤</div><div class="empty-text">Продаж нет — добавьте первую запись</div></div>';main.appendChild(listDiv);return;}
-    var sorted=sales.slice().sort(function(a,b){return b.id-a.id;});
+    var sorted=sales.filter(function(s){return matchCommon(s,s.productId);}).sort(function(a,b){return applyHistorySort(a,b,'sales');});
     var html='<div class="hist-thead" style="grid-template-columns:100px 2fr 1fr 1fr 60px 1fr 1fr 36px"><div>Дата</div><div>Товар</div><div>Кол-во</div><div>Цена</div><div>Скидка</div><div>Выручка</div><div>Прибыль</div><div></div></div>';
     sorted.forEach(function(s){
       var p=productById(s.productId);if(!p)return;
       var revenue=s.qty*s.price;
-      var profit=s.qty*(s.price-p.wholesale);
+      var profit=typeof s.profitAtSale==='number'?s.profitAtSale:getActualProfitForSale(s,p);
       var pc=profit>=0?'var(--green)':'var(--red)';
       var discCell=s.discount>0
         ?'<div><span style="background:var(--yellowdim);color:var(--yellow);font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px">−'+s.discount+'%</span></div>'
@@ -1268,7 +1472,7 @@ function renderHistory(){
         '<div class="rcell">'+s.qty+' шт</div>'+
         '<div class="rcell">₽'+fmtD(s.price)+(s.discount>0?'<br><span style="font-size:10px;color:var(--text3);text-decoration:line-through">₽'+fmtD(Math.round(s.price/(1-s.discount/100)*100)/100)+'</span>':'')+'</div>'+
         discCell+
-        '<div class="rcell">₽'+fmtD(revenue)+'</div>'+
+        '<div class="rcell">₽'+fmtD(revenue)+(s.customer?'<br><span style="font-size:10px;color:var(--text3)">👤 '+esc(s.customer)+'</span>':'')+'</div>'+
         '<div style="font-weight:700;color:'+pc+'">'+(profit>=0?'+':'−')+'₽'+fmtD(Math.abs(profit))+'</div>'+
         '<div><button class="bico bico-d" onclick="delSale('+s.id+')" title="Удалить">✕</button></div>'+
       '</div>';
@@ -1276,7 +1480,7 @@ function renderHistory(){
     listDiv.innerHTML=html;
   } else {
     if(purchases.length===0){listDiv.innerHTML='<div class="empty"><div class="empty-icon">📥</div><div class="empty-text">Поставок нет — добавьте первую запись</div></div>';main.appendChild(listDiv);return;}
-    var sortedP=purchases.slice().sort(function(a,b){return b.id-a.id;});
+    var sortedP=purchases.filter(function(pu){return matchCommon(pu,pu.productId);}).sort(function(a,b){return applyHistorySort(a,b,'purchases');});
     var htmlP='<div class="hist-thead" style="grid-template-columns:100px 2fr 1fr 1fr 1fr 36px"><div>Дата</div><div>Товар</div><div>Кол-во</div><div>Цена закупки</div><div>Сумма</div><div></div></div>';
     sortedP.forEach(function(pu){
       var p=productById(pu.productId);if(!p)return;
@@ -1286,7 +1490,7 @@ function renderHistory(){
         '<div class="rname" style="font-size:13px">'+esc(p.name)+'</div>'+
         '<div class="rcell">'+pu.qty+' шт</div>'+
         '<div class="rcell">₽'+fmtD(pu.price)+'</div>'+
-        '<div style="font-weight:700;color:var(--blue)">₽'+fmtD(total)+'</div>'+
+        '<div style="font-weight:700;color:var(--blue)">₽'+fmtD(total)+(pu.supplier?'<br><span style="font-size:10px;color:var(--text3)">🏭 '+esc(pu.supplier)+'</span>':'')+'</div>'+
         '<div><button class="bico bico-d" onclick="delPurchase('+pu.id+')" title="Удалить">✕</button></div>'+
       '</div>';
     });
@@ -1296,6 +1500,22 @@ function renderHistory(){
 }
 
 function switchHistTab(tab){historyTab=tab;render();}
+function resetHistoryFilters(){
+  historyFilters={productId:'',folderId:'',from:'',to:'',type:'all',sort:'date_desc'};
+  render();
+}
+function applyHistorySort(a,b,type){
+  var mode=historyFilters.sort||'date_desc';
+  var ad=a.date||'',bd=b.date||'';
+  if(mode==='date_asc')return String(ad).localeCompare(String(bd));
+  if(mode==='date_desc')return String(bd).localeCompare(String(ad));
+  if(mode==='qty_desc')return (b.qty||0)-(a.qty||0);
+  if(mode==='amount_desc')return ((b.qty||0)*(b.price||0))-((a.qty||0)*(a.price||0));
+  if(mode==='profit_desc' && type==='sales'){
+    return (b.profitAtSale||0)-(a.profitAtSale||0);
+  }
+  return (b.id||0)-(a.id||0);
+}
 
 function setDiscountType(type){
   discountType=type;
@@ -1309,6 +1529,7 @@ function updateSalePreview(){
   var qty=parseInt($('hs-qty')?$('hs-qty').value:0);
   var p=productById(prodId);
   if(!p||isNaN(qty)||qty<1){prev.innerHTML='';return;}
+  if(qty>(p.stock||0)){prev.innerHTML='<span style="color:var(--red)">Недостаточно остатка: доступно '+(p.stock||0)+' шт</span>';return;}
   var priceVal=parseFloat($('hs-price')?$('hs-price').value:'');
   var basePrice=isNaN(priceVal)?p.retail:priceVal;
   var discVal=parseFloat($('hs-disc')?$('hs-disc').value:'');
@@ -1323,9 +1544,11 @@ function updateSalePreview(){
     }
   }
   var revenue=qty*finalPrice;
-  var profit=qty*(finalPrice-p.wholesale);
+  var profit=qty*(finalPrice-(p.wholesale||0));
   var pc=profit>=0?'var(--green)':'var(--red)';
-  prev.innerHTML='Итог: <b style="color:var(--text)">₽'+fmtD(revenue)+'</b> выручки'+discStr+' · прибыль <b style="color:'+pc+'">'+(profit>=0?'+':'−')+'₽'+fmtD(Math.abs(profit))+'</b>';
+  prev.innerHTML='Итог: <b style="color:var(--text)">₽'+fmtD(revenue)+'</b> выручки'+discStr+' · прибыль <b style="color:'+pc+'">'+(profit>=0?'+':'−')+'₽'+fmtD(Math.abs(profit))+'</b> · остаток после продажи: '+Math.max(0,(p.stock||0)-qty)+' шт';
+  var btn=$('sale-submit-btn');
+  if(btn)btn.disabled=qty>(p.stock||0);
 }
 
 function addSale(){
@@ -1337,7 +1560,9 @@ function addSale(){
     if(isNaN(qty)){var q=$('hs-qty');q.style.borderColor='var(--red)';setTimeout(function(){q.style.borderColor='';},1200);}
     return;
   }
+  if(qty>(p.stock||0)){alert('Недостаточно товара на складе. Доступно: '+(p.stock||0)+' шт.');return;}
   var priceVal=parseFloat($('hs-price').value);
+  if(!isNaN(priceVal)&&priceVal<0){alert('Цена продажи не может быть отрицательной.');return;}
   var basePrice=isNaN(priceVal)?p.retail:priceVal;
   var discVal=parseFloat($('hs-disc')?$('hs-disc').value:0);
   var disc=0, finalPrice=basePrice;
@@ -1349,8 +1574,12 @@ function addSale(){
       if(discVal<=100){disc=discVal;finalPrice=Math.round(basePrice*(1-disc/100)*100)/100;}
     }
   }
+  if(finalPrice<0){alert('Итоговая цена продажи не может быть отрицательной.');return;}
   var date=$('hs-date')?$('hs-date').value:new Date().toISOString().slice(0,10);
-  sales.push({id:nextSaleId++,productId:prodId,qty:qty,price:finalPrice,discount:disc,date:date});
+  var note=$('hs-note')?$('hs-note').value.trim():'';
+  var customer=$('hs-customer')?$('hs-customer').value.trim():'';
+  var snapshot=computeSaleSnapshot(p,qty,basePrice,finalPrice,disc);
+  sales.push({id:nextSaleId++,productId:prodId,qty:qty,price:finalPrice,discount:disc,date:date,note:note,customer:customer,costAtSale:snapshot.costAtSale,retailAtSale:snapshot.retailAtSale,discountAtSale:snapshot.discountAtSale,profitAtSale:snapshot.profitAtSale});
   p.stock=Math.max(0,(p.stock||0)-qty);
   persist();render();
 }
@@ -1365,9 +1594,12 @@ function addPurchase(){
     return;
   }
   var priceVal=parseFloat($('hp-price').value);
+  if(!isNaN(priceVal)&&priceVal<0){alert('Цена закупки не может быть отрицательной.');return;}
   var price=isNaN(priceVal)?p.wholesale:priceVal;
   var date=$('hp-date')?$('hp-date').value:new Date().toISOString().slice(0,10);
-  purchases.push({id:nextPurchaseId++,productId:prodId,qty:qty,price:price,date:date});
+  var note=$('hp-note')?$('hp-note').value.trim():'';
+  var supplier=$('hp-supplier')?$('hp-supplier').value.trim():'';
+  purchases.push({id:nextPurchaseId++,productId:prodId,qty:qty,price:price,date:date,note:note,supplier:supplier});
   // Увеличиваем склад и общее кол-во
   p.stock=(p.stock||0)+qty;
   p.qty=(p.qty||0)+qty;
@@ -1382,6 +1614,10 @@ function delSale(id){
   var p=productById(s.productId);
   if(p)p.stock=(p.stock||0)+s.qty;
   sales=sales.filter(function(x){return x.id!==id;});
+  showUndo('Продажа удалена',function(){
+    sales.push(s);
+    var pp=productById(s.productId);if(pp)pp.stock=Math.max(0,(pp.stock||0)-s.qty);
+  });
   persist();render();
 }
 
@@ -1394,6 +1630,10 @@ function delPurchase(id){
     p.qty=Math.max(0,(p.qty||0)-pu.qty);
   }
   purchases=purchases.filter(function(x){return x.id!==id;});
+  showUndo('Поставка удалена',function(){
+    purchases.push(pu);
+    var pp=productById(pu.productId);if(pp){pp.stock=(pp.stock||0)+pu.qty;pp.qty=(pp.qty||0)+pu.qty;}
+  });
   persist();render();
 }
 
@@ -1439,6 +1679,30 @@ function renderStock(){
     '<div class="sc red"><div class="sc-icon">🚫</div><div class="sc-label">Нет в наличии</div><div class="sc-val">'+outStock+'</div><div class="sc-sub">Требуют пополнения</div></div>'+
     '<div class="sc blue"><div class="sc-icon">🔄</div><div class="sc-label">Оборот</div><div class="sc-val">'+totalSold+'</div><div class="sc-sub">шт продано всего</div></div>';
   main.appendChild(cards);
+  var restockNeed=products.filter(function(p){return (p.stock||0)<=(p.minStock||0);});
+  var restockCard=document.createElement('div');restockCard.className='tw anim';
+  restockCard.innerHTML='<div style="padding:12px 14px;border-bottom:1px solid var(--border);font-weight:700">Need restock: '+restockNeed.length+'</div>'+
+    (restockNeed.length?restockNeed.map(function(p){var need=Math.max(0,(p.minStock||0)-(p.stock||0));return '<div style="padding:9px 14px;font-size:12px;border-top:1px solid var(--border)">'+esc(p.name)+' · нехватка: <b style="color:var(--yellow)">'+need+' шт</b></div>';}).join(''):'<div style="padding:12px 14px;color:var(--text3);font-size:12px">Критичных позиций нет</div>');
+  main.appendChild(restockCard);
+  var stockToolbar=document.createElement('div');stockToolbar.className='toolbar anim';
+  var folderOpts='<option value="all">Все папки</option>';
+  folders.forEach(function(f){folderOpts+='<option value="'+f.id+'"'+(String(stockFilters.folderId)===String(f.id)?' selected':'')+'>'+esc(f.name)+'</option>';});
+  stockToolbar.innerHTML=
+    '<select id="sf-folder">'+folderOpts+'</select>'+
+    '<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="sf-problem" '+(stockFilters.problemOnly?'checked':'')+'> Только проблемные</label>'+
+    '<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="sf-group" '+(stockFilters.groupByFolder?'checked':'')+'> Группировать по папкам</label>'+
+    '<select id="sf-sort"><option value="stock_asc">Остаток ↑</option><option value="stock_desc">Остаток ↓</option><option value="qty_desc">Кол-во ↓</option><option value="wholesale_desc">Опт ↓</option><option value="retail_desc">Розница ↓</option><option value="stockWholesale_desc">Склад опт ↓</option><option value="stockRetail_desc">Склад розн ↓</option></select>';
+  main.appendChild(stockToolbar);
+  $('sf-sort').value=stockFilters.sort||'stock_asc';
+  ['sf-folder','sf-sort','sf-problem','sf-group'].forEach(function(id){
+    $(id).addEventListener('change',function(){
+      stockFilters.folderId=$('sf-folder').value;
+      stockFilters.sort=$('sf-sort').value;
+      stockFilters.problemOnly=$('sf-problem').checked;
+      stockFilters.groupByFolder=$('sf-group').checked;
+      render();
+    });
+  });
 
   if(products.length===0){
     var empty=document.createElement('div');empty.className='tw anim';
@@ -1447,7 +1711,7 @@ function renderStock(){
   }
 
   // ── ТАБЛИЦА ──
-  var GCOLS='28px 1.8fr 90px 80px 180px 100px 72px';
+  var GCOLS='28px 1.8fr 90px 80px 80px 80px 120px 120px 180px 100px 72px';
   var card=document.createElement('div');card.className='stock-card anim';
 
   var headDiv=document.createElement('div');
@@ -1458,6 +1722,11 @@ function renderStock(){
     '<div>Товар</div>'+
     '<div>Папка</div>'+
     '<div>Куплено</div>'+
+    '<div>Опт</div>'+
+    '<div>Розн.</div>'+
+    '<div>Ост.</div>'+
+    '<div>Склад (опт)</div>'+
+    '<div>Склад (розн)</div>'+
     '<div>'+
       '<span style="color:rgba(255,61,107,0.8)">▌</span> Продано &nbsp;·&nbsp; '+
       '<span style="color:var(--green)">▌</span> Остаток'+
@@ -1466,7 +1735,33 @@ function renderStock(){
     '<div>Статус</div>';
   card.appendChild(headDiv);
 
-  var sorted=products.slice().sort(function(a,b){return(a.stock||0)-(b.stock||0);});
+  var pre=products.slice().filter(function(p){
+    if(stockFilters.folderId!=='all' && String(p.folderId||'')!==String(stockFilters.folderId))return false;
+    if(stockFilters.problemOnly)return (p.stock||0)<=(p.minStock||0);
+    return true;
+  });
+  var sKey=stockFilters.sort||'stock_asc';
+  var sDesc=sKey.indexOf('_desc')>0;
+  var metric=sKey.replace('_asc','').replace('_desc','');
+  var sorted=pre.sort(function(a,b){
+    var av=defaultStockSortValue(a,metric),bv=defaultStockSortValue(b,metric);
+    return sDesc?(bv-av):(av-bv);
+  });
+  if(stockFilters.groupByFolder){
+    var grp={};
+    sorted.forEach(function(p){
+      var fid=p.folderId||'none';
+      if(!grp[fid])grp[fid]={name:(p.folderId?(folderById(p.folderId)||{name:'—'}).name:'Без папки'),products:0,qty:0,wh:0,ret:0};
+      grp[fid].products++;
+      grp[fid].qty+=(p.stock||0);
+      grp[fid].wh+=(p.stock||0)*(p.wholesale||0);
+      grp[fid].ret+=(p.stock||0)*(p.retail||0);
+    });
+    var gCard=document.createElement('div');gCard.className='tw anim';
+    gCard.innerHTML='<div style="padding:10px 14px;border-bottom:1px solid var(--border);font-weight:700">Итоги по папкам</div>'+
+      Object.keys(grp).map(function(k){var g=grp[k];return '<div style="padding:9px 14px;border-top:1px solid var(--border);font-size:12px;display:flex;justify-content:space-between;gap:8px"><b>'+esc(g.name)+'</b><span>'+g.products+' тов.</span><span>'+g.qty+' шт</span><span>Опт: ₽'+fmtD(g.wh)+'</span><span>Розн: ₽'+fmtD(g.ret)+'</span></div>';}).join('');
+    main.appendChild(gCard);
+  }
   sorted.forEach(function(p,i){
     var sold=sales.filter(function(s){return s.productId===p.id;}).reduce(function(sum,s){return sum+s.qty;},0);
     var purch=purchases.filter(function(pu){return pu.productId===p.id;}).reduce(function(sum,pu){return sum+pu.qty;},0);
@@ -1478,6 +1773,14 @@ function renderStock(){
     var barColor=stock===0?'var(--red)':stock<=min?'var(--yellow)':'var(--green)';
     var badge=stock===0?'stock-out':stock<=min?'stock-low':'stock-ok';
     var badgeText=stock===0?'Нет':stock<=min?'Мало':'В норме';
+    var salesForProd=sales.filter(function(s){return s.productId===p.id;});
+    var firstSale=salesForProd.length?salesForProd.reduce(function(m,s){return (!m||s.date<m)?s.date:m;},''):null;
+    var velocity=0;
+    if(firstSale){
+      var days=Math.max(1,Math.ceil((Date.now()-new Date(firstSale+'T00:00:00').getTime())/86400000));
+      velocity=sold/days;
+    }
+    var daysLeft=velocity>0?Math.floor(stock/velocity):null;
     var folder=p.folderId?folderById(p.folderId):null;
     var folderCell=folder
       ?'<div class="folder-pill" style="background:'+folder.color+'22;border:1px solid '+folder.color+'33"><div class="fp-dot" style="background:'+folder.color+'"></div><span class="fp-name">'+esc(folder.name)+'</span></div>'
@@ -1502,6 +1805,11 @@ function renderStock(){
         '<div style="font-size:14px;font-weight:700;color:var(--text)">'+p.qty+'<span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:2px">шт</span></div>'+
         '<div style="font-size:10px;color:'+(purch>0?'var(--blue)':'var(--text3)')+';margin-top:2px">'+(purch>0?'+'+purch+' поставки':'—')+'</div>'+
       '</div>'+
+      '<div class="rcell">₽'+fmtD(p.wholesale||0)+'</div>'+
+      '<div class="rcell">₽'+fmtD(p.retail||0)+'</div>'+
+      '<div class="rcell" style="font-weight:700;color:'+barColor+'">'+stock+'</div>'+
+      '<div class="rcell">₽'+fmtD((p.wholesale||0)*stock)+'</div>'+
+      '<div class="rcell">₽'+fmtD((p.retail||0)*stock)+'</div>'+
 
       // Продано / Остаток
       '<div>'+
@@ -1533,7 +1841,7 @@ function renderStock(){
         '<span style="font-size:11px;color:var(--text3)">шт</span>'+
       '</div>'+
 
-      '<div><span class="stock-badge '+badge+'">'+badgeText+'</span></div>';
+      '<div><span class="stock-badge '+badge+'">'+badgeText+'</span>'+(daysLeft!==null?'<div style="font-size:10px;color:'+(daysLeft<14?'var(--red)':'var(--text3)')+';margin-top:4px">'+daysLeft+' дн.</div>':'<div style="font-size:10px;color:var(--text3);margin-top:4px">—</div>')+'</div>';
     card.appendChild(row);
   });
   main.appendChild(card);
@@ -1612,6 +1920,23 @@ function debounce(key,fn,ms){
   clearTimeout(_debounceTimers[key]);
   _debounceTimers[key]=setTimeout(fn,ms||400);
 }
+function showUndo(text,undoFn){
+  lastDeletedAction={undo:undoFn,ts:Date.now()};
+  var existing=$('undo-toast');if(existing)existing.remove();
+  var toast=document.createElement('div');
+  toast.id='undo-toast';
+  toast.style.cssText='position:fixed;bottom:84px;left:50%;transform:translateX(-50%);z-index:9999;background:var(--s1);border:1px solid var(--border2);padding:10px 12px;border-radius:10px;display:flex;gap:10px;align-items:center;box-shadow:0 8px 25px rgba(0,0,0,.35)';
+  toast.innerHTML='<span style="font-size:12px">'+esc(text)+'</span><button class="btn btn-ghost" style="padding:6px 10px;font-size:11px" onclick="undoLastDelete()">Отменить</button>';
+  document.body.appendChild(toast);
+  setTimeout(function(){if(toast.parentNode)toast.remove();if(lastDeletedAction&&Date.now()-lastDeletedAction.ts>4800)lastDeletedAction=null;},5000);
+}
+function undoLastDelete(){
+  if(!lastDeletedAction||!lastDeletedAction.undo)return;
+  lastDeletedAction.undo();
+  lastDeletedAction=null;
+  var toast=$('undo-toast');if(toast)toast.remove();
+  persist();render();
+}
 
 // Живой тик каждые 2 секунды
 setInterval(liveUpdate, 2000);
@@ -1620,10 +1945,10 @@ setInterval(liveUpdate, 2000);
 // PRODUCT FORM ACTIONS
 // ══════════════════════════════════════════════════════
 function doAdd(){
-  var fn=$('fn'),fw=$('fw'),fr=$('fr'),fq=$('fq'),fe=$('fe'),fc=$('fcat'),fnotes=$('fnotes');
+  var fn=$('fn'),fa=$('farticle'),fw=$('fw'),fr=$('fr'),fq=$('fq'),fe=$('fe'),fc=$('fcat'),fnotes=$('fnotes'),fimage=$('fimage');
   if(!fn||!fw||!fr||!fq)return;
-  var name=fn.value.trim(),w=parseFloat(fw.value),r=parseFloat(fr.value),q=parseInt(fq.value),e=parseFloat(fe.value)||0,fid=fc&&fc.value?parseInt(fc.value):null,notes=fnotes?fnotes.value.trim():'';
-  if(!name||isNaN(w)||isNaN(r)||isNaN(q)||q<1){
+  var name=fn.value.trim(),article=fa?fa.value.trim():'',img=fimage?fimage.value.trim():'',w=parseFloat(fw.value),r=parseFloat(fr.value),q=parseInt(fq.value),e=parseFloat(fe.value)||0,fid=fc&&fc.value?parseInt(fc.value):null,notes=fnotes?fnotes.value.trim():'';
+  if(!name||isNaN(w)||isNaN(r)||isNaN(q)||q<1||w<0||r<0||e<0){
     var shake=function(el){if(!el)return;el.style.borderColor='var(--red)';el.style.boxShadow='0 0 0 3px rgba(255,61,107,0.1)';setTimeout(function(){el.style.borderColor='';el.style.boxShadow='';},1200);};
     if(!name)shake(fn);if(isNaN(w))shake(fw);if(isNaN(r))shake(fr);if(isNaN(q))shake(fq);
     return;
@@ -1635,11 +1960,11 @@ function doAdd(){
       // stock = новое_qty - уже_продано
       var sold=sales.filter(function(s){return s.productId===ep.id;}).reduce(function(sum,s){return sum+s.qty;},0);
       var newStock=Math.max(0, q - sold);
-      Object.assign(ep,{name:name,wholesale:w,retail:r,qty:q,expenses:e,folderId:fid,notes:notes,stock:newStock});
+      Object.assign(ep,{name:name,article:article,image:img,wholesale:w,retail:r,qty:q,expenses:e,folderId:fid,notes:notes,stock:newStock});
     }
     editId=null;
   }else{
-    products.push({id:nextId++,name:name,wholesale:w,retail:r,qty:q,expenses:e,folderId:fid,stock:q,minStock:5,notes:notes});
+    products.push({id:nextId++,name:name,article:article,image:img,wholesale:w,retail:r,qty:q,expenses:e,folderId:fid,stock:q,minStock:5,notes:notes});
   }
   persist();render();
 }
@@ -1652,9 +1977,20 @@ function doEdit(id){
 
 function doDel(id){
   if(!confirm('Удалить товар?'))return;
+  var removed=productById(id);
+  var removedSales=sales.filter(function(s){return s.productId===id;});
+  var removedPurchases=purchases.filter(function(pu){return pu.productId===id;});
   products=products.filter(function(p){return p.id!==id;});
   sales=sales.filter(function(s){return s.productId!==id;});
+  purchases=purchases.filter(function(pu){return pu.productId!==id;});
   if(editId===id)editId=null;
+  if(removed){
+    showUndo('Товар удален: '+removed.name,function(){
+      products.push(removed);
+      removedSales.forEach(function(s){sales.push(s);});
+      removedPurchases.forEach(function(pu){purchases.push(pu);});
+    });
+  }
   persist();render();
 }
 
@@ -1893,7 +2229,7 @@ function deleteFolder(id){
 // EXPORT / IMPORT
 // ══════════════════════════════════════════════════════
 function doExport(){
-  var data={products:products,folders:folders,sales:sales,purchases:purchases,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,theme:currentTheme};
+  var data={products:products,folders:folders,sales:sales,purchases:purchases,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange};
   var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   var url=URL.createObjectURL(blob);
   var a=document.createElement('a');a.href=url;a.download='profit_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url);
@@ -1986,6 +2322,24 @@ function doExportExcel(){
   var url=URL.createObjectURL(blob);
   var a=document.createElement('a');a.href=url;a.download='profit_'+new Date().toISOString().slice(0,10)+'.xls';a.click();URL.revokeObjectURL(url);
 }
+function doExportCSV(kind){
+  function csvEscape(v){var s=String(v==null?'':v);return /[\",;\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+  var rows=[];
+  if(kind==='sales'){
+    rows.push(['date','product','qty','price','revenue','profit','customer','note']);
+    sales.forEach(function(s){var p=productById(s.productId);if(!p)return;rows.push([s.date,p.name,s.qty,s.price,s.qty*s.price,s.profitAtSale||0,s.customer||'',s.note||'']);});
+  }else if(kind==='purchases'){
+    rows.push(['date','product','qty','price','sum','supplier','note']);
+    purchases.forEach(function(pu){var p=productById(pu.productId);if(!p)return;rows.push([pu.date,p.name,pu.qty,pu.price,pu.qty*pu.price,pu.supplier||'',pu.note||'']);});
+  }else{
+    rows.push(['product','folder','stock','minStock','wholesale','retail','stockValueWholesale','stockValueRetail']);
+    products.forEach(function(p){var f=p.folderId?folderById(p.folderId):null;rows.push([p.name,f?f.name:'',p.stock||0,p.minStock||0,p.wholesale||0,p.retail||0,(p.stock||0)*(p.wholesale||0),(p.stock||0)*(p.retail||0)]);});
+  }
+  var csv=rows.map(function(r){return r.map(csvEscape).join(';');}).join('\n');
+  var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  var url=URL.createObjectURL(blob);var a=document.createElement('a');
+  a.href=url;a.download='profit_'+kind+'_'+isoToday()+'.csv';a.click();URL.revokeObjectURL(url);
+}
 
 $('imp').addEventListener('change',function(e){
   var file=e.target.files[0];if(!file)return;
@@ -1995,7 +2349,7 @@ $('imp').addEventListener('change',function(e){
       var d=JSON.parse(ev.target.result);
       if(Array.isArray(d)){products=d;folders=[];sales=[];purchases=[];nextId=d.length+1;nextFolderId=1;nextSaleId=1;nextPurchaseId=1;}
       else{products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;}
-      products.forEach(function(p){if(p.stock===undefined)p.stock=p.qty;if(p.minStock===undefined)p.minStock=5;if(p.notes===undefined)p.notes='';});
+      migrateData();
       editId=null;selectedFolder=null;persist();render();
     }catch(err){alert('Ошибка: '+err.message);}
   };
@@ -2046,7 +2400,7 @@ var AUTO_BACKUP_INTERVAL=2*60*60*1000; // 2 hours
 var LAST_AUTO_KEY='ptv5_last_auto_backup';
 
 function getBackupData(){
-  return JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,theme:currentTheme,discountType:discountType});
+  return JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange});
 }
 
 function loadBackups(){
@@ -2101,8 +2455,8 @@ function restoreBackup(ts){
     products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];
     nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;
     nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;
-    if(d.theme)currentTheme=d.theme;if(d.discountType)discountType=d.discountType;
-    products.forEach(function(p){if(p.stock===undefined)p.stock=p.qty;if(p.minStock===undefined)p.minStock=5;if(p.notes===undefined)p.notes='';});
+    if(d.theme)currentTheme=d.theme;if(d.discountType)discountType=d.discountType;if(d.analyticsRange)analyticsRange=d.analyticsRange;
+    migrateData();
     persist();applyTheme();render();
     closeBackupModal();
     var f=$('flash');if(f){f.textContent='✓ Восстановлено';f.classList.add('on');setTimeout(function(){f.classList.remove('on');f.textContent='✓ Сохранено';},2500);}
@@ -2180,6 +2534,8 @@ setTimeout(tryAutoBackup,3000);
 setInterval(tryAutoBackup,15*60*1000);
 
 
+loadData();
+applyTheme();
 renderColorPicker();
 initCalButtons();
 render();
