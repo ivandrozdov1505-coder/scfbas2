@@ -1900,55 +1900,89 @@ function doExport(){
 }
 
 function doExportExcel(){
-  // SpreadsheetML — открывается в Excel без библиотек
+  // SpreadsheetML 2003 — стабильно открывается в Excel без сторонних библиотек
   function xmlStr(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-  function row(cells){return '<Row>'+cells.map(function(c){
-    var t=typeof c==='number'?'Number':'String';
-    return '<Cell><Data ss:Type="'+t+'">'+xmlStr(c)+'</Data></Cell>';
-  }).join('')+'</Row>';}
-  function sheet(name,rows){return '<Worksheet ss:Name="'+xmlStr(name)+'"><Table>'+rows.join('')+'</Table></Worksheet>';}
+  function round2(v){return Math.round((Number(v)||0)*100)/100;}
+  function toDisplayDate(v){
+    var s=String(v||'');
+    var m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return m?(m[3]+'.'+m[2]+'.'+m[1]):s;
+  }
+  function sheetName(v){
+    var s=String(v||'Лист').replace(/[\\\/\?\*\[\]\:]/g,' ').trim();
+    if(!s)s='Лист';
+    return s.slice(0,31);
+  }
+  function row(cells,isHeader){
+    return '<Row>'+cells.map(function(c){
+      var t=typeof c==='number'&&isFinite(c)?'Number':'String';
+      return '<Cell'+(isHeader?' ss:StyleID="h"':'')+'><Data ss:Type="'+t+'">'+xmlStr(c)+'</Data></Cell>';
+    }).join('')+'</Row>';
+  }
+  function sheet(name,rows,colCount){
+    return '<Worksheet ss:Name="'+xmlStr(sheetName(name))+'"><Table ss:ExpandedColumnCount="'+colCount+'" ss:ExpandedRowCount="'+rows.length+'" x:FullColumns="1" x:FullRows="1">'+rows.join('')+'</Table>'+
+      '<WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>1</SplitHorizontal><TopRowBottomPane>1</TopRowBottomPane><Panes><Pane><Number>3</Number></Pane></Panes>'+
+      '<ProtectObjects>False</ProtectObjects><ProtectScenarios>False</ProtectScenarios></WorksheetOptions></Worksheet>';
+  }
 
   // Sheet 1: Товары
-  var pRows=[row(['#','Название','Папка','Опт (₽)','Розница (₽)','Кол-во','Расходы (₽)','Остаток','Прибыль (₽)','Маржа (%)','Заметка'])];
+  var pRows=[row(['#','Название','Папка','Опт (₽)','Розница (₽)','Кол-во','Расходы (₽)','Остаток','Прибыль (₽)','Маржа (%)','Заметка'],true)];
+  var pTotalQty=0,pTotalExp=0,pTotalProfit=0;
   products.forEach(function(p,i){
     var f=p.folderId?folderById(p.folderId):null;
     var profit=(p.retail-p.wholesale)*p.qty-p.expenses;
     var margin=p.retail*p.qty>0?Math.round(profit/(p.retail*p.qty)*1000)/10:0;
-    pRows.push(row([i+1,p.name,f?f.name:'',p.wholesale,p.retail,p.qty,p.expenses,p.stock||0,Math.round(profit*100)/100,margin,p.notes||'']));
+    pRows.push(row([i+1,p.name,f?f.name:'',round2(p.wholesale),round2(p.retail),round2(p.qty),round2(p.expenses),round2(p.stock||0),round2(profit),round2(margin),p.notes||'']));
+    pTotalQty+=Number(p.qty)||0;
+    pTotalExp+=Number(p.expenses)||0;
+    pTotalProfit+=Number(profit)||0;
   });
+  pRows.push(row(['','ИТОГО','','','',round2(pTotalQty),round2(pTotalExp),'',round2(pTotalProfit),'','']));
 
   // Sheet 2: Продажи
-  var sRows=[row(['#','Дата','Товар','Кол-во','Цена продажи (₽)','Скидка (%)','Выручка (₽)','Прибыль (₽)'])];
-  sales.slice().sort(function(a,b){return a.date>b.date?-1:1;}).forEach(function(s,i){
+  var sRows=[row(['#','Дата','Товар','Кол-во','Цена продажи (₽)','Скидка (%)','Выручка (₽)','Прибыль (₽)'],true)];
+  var sTotalQty=0,sTotalRev=0,sTotalProfit=0;
+  sales.slice().sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));}).forEach(function(s,i){
     var p=productById(s.productId);if(!p)return;
     var revenue=s.qty*s.price;
     var profit=s.qty*(s.price-p.wholesale);
-    sRows.push(row([i+1,s.date,p.name,s.qty,s.price,s.discount||0,Math.round(revenue*100)/100,Math.round(profit*100)/100]));
+    sRows.push(row([i+1,toDisplayDate(s.date),p.name,round2(s.qty),round2(s.price),round2(s.discount||0),round2(revenue),round2(profit)]));
+    sTotalQty+=Number(s.qty)||0;
+    sTotalRev+=Number(revenue)||0;
+    sTotalProfit+=Number(profit)||0;
   });
+  sRows.push(row(['','ИТОГО','',round2(sTotalQty),'','',round2(sTotalRev),round2(sTotalProfit)]));
 
   // Sheet 3: Поставки
-  var puRows=[row(['#','Дата','Товар','Кол-во','Цена закупки (₽)','Сумма (₽)'])];
-  purchases.slice().sort(function(a,b){return a.date>b.date?-1:1;}).forEach(function(pu,i){
+  var puRows=[row(['#','Дата','Товар','Кол-во','Цена закупки (₽)','Сумма (₽)'],true)];
+  var puTotalQty=0,puTotalSum=0;
+  purchases.slice().sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));}).forEach(function(pu,i){
     var p=productById(pu.productId);if(!p)return;
-    puRows.push(row([i+1,pu.date,p.name,pu.qty,pu.price,Math.round(pu.qty*pu.price*100)/100]));
+    var total=pu.qty*pu.price;
+    puRows.push(row([i+1,toDisplayDate(pu.date),p.name,round2(pu.qty),round2(pu.price),round2(total)]));
+    puTotalQty+=Number(pu.qty)||0;
+    puTotalSum+=Number(total)||0;
   });
+  puRows.push(row(['','ИТОГО','',round2(puTotalQty),'',round2(puTotalSum)]));
 
   // Sheet 4: Склад
-  var stRows=[row(['#','Товар','Папка','Куплено','Продано','Остаток','Порог «мало»','Статус'])];
+  var stRows=[row(['#','Товар','Папка','Куплено','Продано','Остаток','Порог «мало»','Статус'],true)];
   products.forEach(function(p,i){
     var f=p.folderId?folderById(p.folderId):null;
     var sold=sales.filter(function(s){return s.productId===p.id;}).reduce(function(sum,s){return sum+s.qty;},0);
     var stock=p.stock||0;var min=p.minStock||5;
-    var status=stock===0?'Нет':stock<=min?'Мало':'В норме';
-    stRows.push(row([i+1,p.name,f?f.name:'',p.qty,sold,stock,min,status]));
+    var status=stock===0?'Нет':'В норме';
+    if(stock>0&&stock<=min)status='Мало';
+    stRows.push(row([i+1,p.name,f?f.name:'',round2(p.qty),round2(sold),round2(stock),round2(min),status]));
   });
 
   var xml='<?xml version="1.0" encoding="UTF-8"?>'+
     '<?mso-application progid="Excel.Sheet"?>'+
-    '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">'+
-    sheet('Товары',pRows)+sheet('Продажи',sRows)+sheet('Поставки',puRows)+sheet('Склад',stRows)+
+    '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">'+
+    '<Styles><Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Bottom"/></Style><Style ss:ID="h"><Font ss:Bold="1"/></Style></Styles>'+
+    sheet('Товары',pRows,11)+sheet('Продажи',sRows,8)+sheet('Поставки',puRows,6)+sheet('Склад',stRows,8)+
     '</Workbook>';
-  var blob=new Blob([xml],{type:'application/vnd.ms-excel;charset=utf-8'});
+  var blob=new Blob(['\uFEFF',xml],{type:'application/vnd.ms-excel;charset=utf-8'});
   var url=URL.createObjectURL(blob);
   var a=document.createElement('a');a.href=url;a.download='profit_'+new Date().toISOString().slice(0,10)+'.xls';a.click();URL.revokeObjectURL(url);
 }
