@@ -1762,9 +1762,20 @@ function renderStock(){
       Object.keys(grp).map(function(k){var g=grp[k];return '<div style="padding:9px 14px;border-top:1px solid var(--border);font-size:12px;display:flex;justify-content:space-between;gap:8px"><b>'+esc(g.name)+'</b><span>'+g.products+' тов.</span><span>'+g.qty+' шт</span><span>Опт: ₽'+fmtD(g.wh)+'</span><span>Розн: ₽'+fmtD(g.ret)+'</span></div>';}).join('');
     main.appendChild(gCard);
   }
+  var soldByProduct={}, purchasedByProduct={}, firstSaleByProduct={};
+  sales.forEach(function(s){
+    var pid=s.productId;
+    soldByProduct[pid]=(soldByProduct[pid]||0)+(s.qty||0);
+    if(!firstSaleByProduct[pid] || s.date<firstSaleByProduct[pid])firstSaleByProduct[pid]=s.date;
+  });
+  purchases.forEach(function(pu){
+    var pid=pu.productId;
+    purchasedByProduct[pid]=(purchasedByProduct[pid]||0)+(pu.qty||0);
+  });
+
   sorted.forEach(function(p,i){
-    var sold=sales.filter(function(s){return s.productId===p.id;}).reduce(function(sum,s){return sum+s.qty;},0);
-    var purch=purchases.filter(function(pu){return pu.productId===p.id;}).reduce(function(sum,pu){return sum+pu.qty;},0);
+    var sold=soldByProduct[p.id]||0;
+    var purch=purchasedByProduct[p.id]||0;
     var stock=p.stock||0;
     var min=p.minStock||5;
     var total=sold+stock;
@@ -1773,8 +1784,7 @@ function renderStock(){
     var barColor=stock===0?'var(--red)':stock<=min?'var(--yellow)':'var(--green)';
     var badge=stock===0?'stock-out':stock<=min?'stock-low':'stock-ok';
     var badgeText=stock===0?'Нет':stock<=min?'Мало':'В норме';
-    var salesForProd=sales.filter(function(s){return s.productId===p.id;});
-    var firstSale=salesForProd.length?salesForProd.reduce(function(m,s){return (!m||s.date<m)?s.date:m;},''):null;
+    var firstSale=firstSaleByProduct[p.id]||null;
     var velocity=0;
     if(firstSale){
       var days=Math.max(1,Math.ceil((Date.now()-new Date(firstSale+'T00:00:00').getTime())/86400000));
@@ -1807,26 +1817,26 @@ function renderStock(){
       '</div>'+
       '<div class="rcell">₽'+fmtD(p.wholesale||0)+'</div>'+
       '<div class="rcell">₽'+fmtD(p.retail||0)+'</div>'+
-      '<div class="rcell" style="font-weight:700;color:'+barColor+'">'+stock+'</div>'+
+      '<div class="rcell" style="font-weight:700;color:'+barColor+'" data-role="stock-col">'+stock+'</div>'+
       '<div class="rcell">₽'+fmtD((p.wholesale||0)*stock)+'</div>'+
       '<div class="rcell">₽'+fmtD((p.retail||0)*stock)+'</div>'+
 
       // Продано / Остаток
       '<div>'+
         '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:5px">'+
-          '<span style="font-size:12px;font-weight:700;color:var(--red)">'+sold+'</span>'+
+          '<span data-role="sold-num" style="font-size:12px;font-weight:700;color:var(--red)">'+sold+'</span>'+
           '<span style="font-size:10px;color:var(--text3)">прод.</span>'+
           '<span style="color:var(--text3);font-size:10px">/</span>'+
-          '<span style="font-size:15px;font-weight:800;color:'+barColor+'">'+stock+'</span>'+
+          '<span data-role="stock-num" style="font-size:15px;font-weight:800;color:'+barColor+'">'+stock+'</span>'+
           '<span style="font-size:10px;color:var(--text3)">ост.</span>'+
         '</div>'+
         // Двухцветный бар — красный всегда минимум 4px если есть продажи
         '<div style="height:7px;border-radius:4px;background:var(--s3);display:flex;overflow:hidden">'+
           (sold>0
-            ?'<div style="min-width:4px;width:'+soldW+'%;background:var(--red);opacity:0.7;border-radius:4px 0 0 4px;flex-shrink:0"></div>'
+            ?'<div data-role="sold-bar" style="min-width:4px;width:'+soldW+'%;background:var(--red);opacity:0.7;border-radius:4px 0 0 4px;flex-shrink:0"></div>'
             :'<div style="width:2px;background:rgba(255,61,107,0.2)"></div>'
           )+
-          '<div style="flex:1;background:'+barColor+';opacity:0.85;border-radius:'+(sold>0?'0 4px 4px 0':'4px')+'"></div>'+
+          '<div data-role="left-bar" style="width:'+leftW+'%;background:'+barColor+';opacity:0.85;border-radius:'+(sold>0?'0 4px 4px 0':'4px')+'"></div>'+
         '</div>'+
         // Корректировка
         '<div style="display:flex;align-items:center;gap:5px;margin-top:7px">'+
@@ -1864,8 +1874,10 @@ function liveUpdate(){
 
   // Карточки на вкладке Склад — обновляем не перерисовывая таблицу
   if(currentTab==='stock'){
+    var soldMap={};
+    sales.forEach(function(s){soldMap[s.productId]=(soldMap[s.productId]||0)+(s.qty||0);});
     products.forEach(function(p){
-      var sold=sales.filter(function(s){return s.productId===p.id;}).reduce(function(sum,s){return sum+s.qty;},0);
+      var sold=soldMap[p.id]||0;
       var stock=p.stock||0;
       var min=p.minStock||5;
       var row=document.querySelector('[data-id="'+p.id+'"]');
@@ -1883,11 +1895,13 @@ function liveUpdate(){
         if(sp.getAttribute('data-role')==='stock-num'){sp.textContent=stock;sp.style.color=barColor;}
         if(sp.getAttribute('data-role')==='sold-num'){sp.textContent=sold;}
       });
+      var stockCol=row.querySelector('[data-role="stock-col"]');
+      if(stockCol){stockCol.textContent=stock;stockCol.style.color=barColor;}
       // Бар
       var bars=row.querySelectorAll('[data-role="sold-bar"]');
       bars.forEach(function(b){b.style.width=soldW+'%';});
       var barRights=row.querySelectorAll('[data-role="left-bar"]');
-      barRights.forEach(function(b){b.style.background=barColor;});
+      barRights.forEach(function(b){b.style.background=barColor;b.style.width=leftW+'%';});
       // Бейдж
       var bdg=row.querySelector('.stock-badge');
       if(bdg){bdg.className='stock-badge '+badge;bdg.textContent=badgeText;}
