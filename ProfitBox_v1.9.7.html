@@ -207,6 +207,9 @@ body.fullscreen #toggle-sidebar-btn .ic::before{content:'▶'}
 .docs-hidden-note{position:absolute;left:-9999px;top:auto;font-size:1px;color:transparent;user-select:none}
 
 @media (max-width:1024px) and (pointer:coarse){
+  /* FIX: keep all blocks constrained to viewport on mobile */
+  *,*::before,*::after{box-sizing:border-box}
+
   /* Show mobile nav, hide desktop sidebar */
   #mobile-nav{display:block}
   #sidebar{
@@ -224,6 +227,10 @@ body.fullscreen #toggle-sidebar-btn .ic::before{content:'▶'}
 
   /* If browser forces desktop viewport (e.g. ~980px), still keep one-column mobile flow */
   #main,.toolbar,.form-wrap,.tw,.hist-form,.hist-list,.stock-card,.chart-card{width:100%;max-width:100%}
+  /* FIX: prevent flex/grid children from forcing horizontal page scroll */
+  .toolbar{flex-wrap:wrap}
+  .search-wrap,.fg,.fbtns,.hist-body .fbtns,.top-item{min-width:0;max-width:100%}
+  .period-label,.cal-trigger,.cal-year-label,.top-val{min-width:0}
 
   /* Topbar: compact */
   #topbar{padding:0 10px;height:50px;gap:8px}
@@ -271,10 +278,9 @@ body.fullscreen #toggle-sidebar-btn .ic::before{content:'▶'}
   .hist-body .fbtns .btn{width:100%;justify-content:center}
 
   /* Tables: horizontal scroll */
-  .tw,.hist-list,.stock-card{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .thead,.tr,.tfoot{min-width:660px}
-  .hist-thead,.hist-tr{min-width:600px}
-  .stock-card-head,.stock-row{min-width:560px}
+  .tw,.hist-list,.stock-card{max-width:100%;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
+  /* FIX: remove hard min-widths on mobile; allow internal horizontal scrolling only when needed */
+  .thead,.tr,.tfoot,.hist-thead,.hist-tr,.stock-card-head,.stock-row{min-width:100%;width:max-content}
   /* Scroll hint */
   .tw::after,.hist-list::after{content:'← прокрути →';display:block;text-align:center;font-size:10px;color:var(--text3);padding:6px;border-top:1px solid var(--border)}
 
@@ -311,6 +317,9 @@ body.fullscreen #toggle-sidebar-btn .ic::before{content:'▶'}
   .sc{padding:12px 13px}
   #main{padding:10px;gap:12px;padding-bottom:75px}
   .period-tabs{flex-wrap:wrap}
+  /* FIX: stack dense form grids on narrow phones to avoid clipped fields */
+  .form-body,.hist-body{grid-template-columns:1fr!important}
+  .form-body .fg,.hist-body .fg,.form-body .fbtns,.hist-body .fbtns{grid-column:1/-1}
 }
 .minstock-wrap{display:flex;align-items:center;gap:6px}
 .minstock-wrap input{width:55px;padding:4px 8px;font-size:12px;text-align:center}
