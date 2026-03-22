@@ -121,25 +121,27 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 .sort-info{font-size:11px;color:var(--text3)}
 
 /* mobile card mode for products/history/stock */
-.thead,.tfoot,.hist-thead,.stock-card-head,.stock-thead{display:none!important}
-#tbody{display:grid;gap:10px;padding:0;background:transparent}
-.tr,.hist-tr,.stock-row,.stock-tr{display:grid!important;grid-template-columns:1fr!important;gap:8px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--s1)!important;margin:0}
-.hist-list,.stock-card,.tw{background:transparent;border:none;overflow:visible}
-.tr>div,.hist-tr>div,.stock-row>div,.stock-tr>div{min-width:0}
-.rnum{display:none}
-.rname{font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rcell{color:var(--text2);font-size:13px}
-.folder-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;max-width:100%;overflow:hidden}
-.fp-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.mb{display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700}.mb-p{background:var(--greendim);color:var(--green)}.mb-n{background:var(--reddim);color:var(--red)}
-.bico{background:transparent;border:1px solid transparent;border-radius:6px;padding:8px 10px;cursor:pointer}.bico-e{color:var(--green);border-color:rgba(0,255,179,.2)}.bico-d{color:var(--red);border-color:rgba(255,61,107,.2)}
+@media (max-width:767px){
+  .thead,.tfoot,.hist-thead,.stock-card-head,.stock-thead{display:none!important}
+  #tbody{display:grid;gap:10px;padding:0;background:transparent}
+  .tr,.hist-tr,.stock-row,.stock-tr{display:grid!important;grid-template-columns:1fr!important;gap:8px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--s1)!important;margin:0}
+  .hist-list,.stock-card,.tw{background:transparent;border:none;overflow:visible}
+  .tr>div,.hist-tr>div,.stock-row>div,.stock-tr>div{min-width:0}
+  .rnum{display:none}
+  .rname{font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rcell{color:var(--text2);font-size:13px}
+  .folder-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;max-width:100%;overflow:hidden}
+  .fp-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+  .mb{display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700}.mb-p{background:var(--greendim);color:var(--green)}.mb-n{background:var(--reddim);color:var(--red)}
+  .bico{background:transparent;border:1px solid transparent;border-radius:6px;padding:8px 10px;cursor:pointer}.bico-e{color:var(--green);border-color:rgba(0,255,179,.2)}.bico-d{color:var(--red);border-color:rgba(255,61,107,.2)}
 
-.tr.tgrid-p>div:nth-child(4)::before,.tr.tgrid-p>div:nth-child(5)::before,.tr.tgrid-p>div:nth-child(6)::before,.tr.tgrid-p>div:nth-child(7)::before,.tr.tgrid-p>div:nth-child(8)::before,.tr.tgrid-p>div:nth-child(9)::before,.tr.tgrid-p>div:nth-child(10)::before,.hist-tr>div:nth-child(3)::before,.hist-tr>div:nth-child(4)::before,.hist-tr>div:nth-child(5)::before,.hist-tr>div:nth-child(6)::before,.hist-tr>div:nth-child(7)::before,.stock-row>div:nth-child(4)::before,.stock-row>div:nth-child(5)::before,.stock-row>div:nth-child(6)::before,.stock-row>div:nth-child(7)::before,.stock-row>div:nth-child(8)::before,.stock-row>div:nth-child(9)::before,.stock-row>div:nth-child(10)::before,.stock-row>div:nth-child(11)::before,.stock-tr>div:nth-child(4)::before,.stock-tr>div:nth-child(5)::before,.stock-tr>div:nth-child(6)::before,.stock-tr>div:nth-child(7)::before{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:2px}
-.tr.tgrid-p>div:nth-child(4)::before{content:'Опт'}.tr.tgrid-p>div:nth-child(5)::before{content:'Розница'}.tr.tgrid-p>div:nth-child(6)::before{content:'Кол-во'}.tr.tgrid-p>div:nth-child(7)::before{content:'Расходы'}.tr.tgrid-p>div:nth-child(8)::before{content:'Прибыль'}.tr.tgrid-p>div:nth-child(9)::before{content:'Остаток'}.tr.tgrid-p>div:nth-child(10)::before{content:'Заметка'}
-.hist-tr>div:nth-child(3)::before{content:'Кол-во'}.hist-tr>div:nth-child(4)::before{content:'Цена'}.hist-tr>div:nth-child(5)::before{content:'Скидка'}.hist-tr>div:nth-child(6)::before{content:'Сумма'}.hist-tr>div:nth-child(7)::before{content:'Прибыль'}
-.stock-row>div:nth-child(4)::before,.stock-tr>div:nth-child(4)::before{content:'Куплено'}.stock-row>div:nth-child(5)::before,.stock-tr>div:nth-child(5)::before{content:'Опт'}.stock-row>div:nth-child(6)::before,.stock-tr>div:nth-child(6)::before{content:'Розница'}.stock-row>div:nth-child(7)::before,.stock-tr>div:nth-child(7)::before{content:'Остаток'}
-.stock-row>div:nth-child(8)::before{content:'Склад опт'}.stock-row>div:nth-child(9)::before{content:'Склад розн'}.stock-row>div:nth-child(10)::before{content:'Продано / Остаток'}.stock-row>div:nth-child(11)::before{content:'Порог и статус'}
-.tr.tgrid-p>div:last-child,.hist-tr>div:last-child{display:flex;gap:8px;justify-content:flex-end}
+  .tr.tgrid-p>div:nth-child(4)::before,.tr.tgrid-p>div:nth-child(5)::before,.tr.tgrid-p>div:nth-child(6)::before,.tr.tgrid-p>div:nth-child(7)::before,.tr.tgrid-p>div:nth-child(8)::before,.tr.tgrid-p>div:nth-child(9)::before,.tr.tgrid-p>div:nth-child(10)::before,.hist-tr>div:nth-child(3)::before,.hist-tr>div:nth-child(4)::before,.hist-tr>div:nth-child(5)::before,.hist-tr>div:nth-child(6)::before,.hist-tr>div:nth-child(7)::before,.stock-row>div:nth-child(4)::before,.stock-row>div:nth-child(5)::before,.stock-row>div:nth-child(6)::before,.stock-row>div:nth-child(7)::before,.stock-row>div:nth-child(8)::before,.stock-row>div:nth-child(9)::before,.stock-row>div:nth-child(10)::before,.stock-row>div:nth-child(11)::before,.stock-tr>div:nth-child(4)::before,.stock-tr>div:nth-child(5)::before,.stock-tr>div:nth-child(6)::before,.stock-tr>div:nth-child(7)::before{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:2px}
+  .tr.tgrid-p>div:nth-child(4)::before{content:'Опт'}.tr.tgrid-p>div:nth-child(5)::before{content:'Розница'}.tr.tgrid-p>div:nth-child(6)::before{content:'Кол-во'}.tr.tgrid-p>div:nth-child(7)::before{content:'Расходы'}.tr.tgrid-p>div:nth-child(8)::before{content:'Прибыль'}.tr.tgrid-p>div:nth-child(9)::before{content:'Остаток'}.tr.tgrid-p>div:nth-child(10)::before{content:'Заметка'}
+  .hist-tr>div:nth-child(3)::before{content:'Кол-во'}.hist-tr>div:nth-child(4)::before{content:'Цена'}.hist-tr>div:nth-child(5)::before{content:'Скидка'}.hist-tr>div:nth-child(6)::before{content:'Сумма'}.hist-tr>div:nth-child(7)::before{content:'Прибыль'}
+  .stock-row>div:nth-child(4)::before,.stock-tr>div:nth-child(4)::before{content:'Куплено'}.stock-row>div:nth-child(5)::before,.stock-tr>div:nth-child(5)::before{content:'Опт'}.stock-row>div:nth-child(6)::before,.stock-tr>div:nth-child(6)::before{content:'Розница'}.stock-row>div:nth-child(7)::before,.stock-tr>div:nth-child(7)::before{content:'Остаток'}
+  .stock-row>div:nth-child(8)::before{content:'Склад опт'}.stock-row>div:nth-child(9)::before{content:'Склад розн'}.stock-row>div:nth-child(10)::before{content:'Продано / Остаток'}.stock-row>div:nth-child(11)::before{content:'Порог и статус'}
+  .tr.tgrid-p>div:last-child,.hist-tr>div:last-child{display:flex;gap:8px;justify-content:flex-end}
+}
 
 .stock-dual-bar{height:8px;border-radius:4px;overflow:hidden;background:var(--s3);display:flex}
 .stock-pct-row{display:flex;justify-content:space-between}.stock-pct{font-size:10px;color:var(--text3)}
@@ -162,6 +164,17 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 
 .date-chip{display:inline-block;font-size:11px;font-weight:600;color:var(--text3);background:var(--s3);padding:3px 8px;border-radius:6px;white-space:nowrap}
 .minstock-wrap{display:flex;align-items:center;gap:6px}.minstock-wrap input{width:60px;min-height:36px;padding:4px 8px;font-size:12px}
+
+/* FIX: desktop stock layout */
+@media (min-width:768px){
+  .stock-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+  .stock-card-head,.stock-thead{display:grid!important;padding:10px 18px;gap:10px;background:var(--s2);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--text3);text-transform:uppercase;align-items:center}
+  .stock-card-head,.stock-row,.stock-thead,.stock-tr{grid-template-columns:28px 1.8fr 90px 80px 80px 80px 120px 120px 180px 100px 72px 80px!important}
+  .stock-row,.stock-tr{display:grid!important;border:none;border-radius:0;padding:14px 18px;margin:0;gap:10px;border-bottom:1px solid var(--border);background:transparent!important;align-items:center}
+  .stock-row:last-child,.stock-tr:last-child{border-bottom:none}
+  .stock-row:hover,.stock-tr:hover{background:var(--s2)!important}
+  .stock-row>div::before,.stock-tr>div::before{content:none!important}
+}
 
 .cal-wrap{position:relative;display:inline-block}
 .cal-trigger{display:flex;align-items:center;gap:8px;min-width:150px;background:var(--s2);border:1px solid var(--border2);border-radius:9px;padding:9px 12px;color:var(--text);font-size:13px;cursor:pointer}
