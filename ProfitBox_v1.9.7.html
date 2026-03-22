@@ -221,12 +221,12 @@ body.fullscreen #toggle-sidebar-btn .ic::before{content:'▶'}
   body.fullscreen #sidebar{display:flex}
 
   /* CRITICAL: content takes full width since sidebar is off-screen */
-  #app{display:block;width:100%;max-width:100vw;overflow-x:hidden;position:relative;left:0}
+  #app{display:block;width:100%;min-width:0;max-width:100vw;overflow-x:hidden;position:relative;left:0}
   #content{width:100%;min-width:0;max-width:100vw;overflow-x:hidden;position:relative;left:0;margin:0;transform:none}
-  #main{width:100%;max-width:100vw;overflow-x:hidden}
+  #main{width:100%;min-width:0;max-width:100vw;overflow-x:hidden}
 
   /* If browser forces desktop viewport (e.g. ~980px), still keep one-column mobile flow */
-  #main,.toolbar,.form-wrap,.tw,.hist-form,.hist-list,.stock-card,.chart-card{width:100%;max-width:100%}
+  #main,.toolbar,.form-wrap,.tw,.hist-form,.hist-list,.stock-card,.chart-card{width:100%;min-width:0;max-width:100%}
   /* FIX: prevent flex/grid children from forcing horizontal page scroll */
   .toolbar{flex-wrap:wrap}
   .search-wrap,.fg,.fbtns,.hist-body .fbtns,.top-item{min-width:0;max-width:100%}
@@ -234,10 +234,11 @@ body.fullscreen #toggle-sidebar-btn .ic::before{content:'▶'}
 
   /* Topbar: compact */
   #topbar{padding:0 10px;height:50px;gap:8px}
-  .topbar-r{min-width:0;gap:6px}
+  .topbar-r{min-width:0;gap:6px;overflow:hidden}
   .topbar-r > div:first-child{padding:3px 8px;gap:4px;max-width:52vw;overflow-x:auto}
   .topbar-title{font-size:14px}
   .topbar-sub{display:none}
+  .flash{display:none}
   .topbar-r .btn-ghost{display:none}
   .topbar-r .btn-ghost:last-child{display:none}
   #toggle-sidebar-btn{display:inline-flex!important}
@@ -280,7 +281,7 @@ body.fullscreen #toggle-sidebar-btn .ic::before{content:'▶'}
   /* Tables: horizontal scroll */
   .tw,.hist-list,.stock-card{max-width:100%;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
   /* FIX: remove hard min-widths on mobile; allow internal horizontal scrolling only when needed */
-  .thead,.tr,.tfoot,.hist-thead,.hist-tr,.stock-card-head,.stock-row{min-width:100%;width:max-content}
+  .thead,.tr,.tfoot,.hist-thead,.hist-tr,.stock-card-head,.stock-row{min-width:0;width:max-content}
   /* Scroll hint */
   .tw::after,.hist-list::after{content:'← прокрути →';display:block;text-align:center;font-size:10px;color:var(--text3);padding:6px;border-top:1px solid var(--border)}
 
@@ -320,6 +321,32 @@ body.fullscreen #toggle-sidebar-btn .ic::before{content:'▶'}
   /* FIX: stack dense form grids on narrow phones to avoid clipped fields */
   .form-body,.hist-body{grid-template-columns:1fr!important}
   .form-body .fg,.hist-body .fg,.form-body .fbtns,.hist-body .fbtns{grid-column:1/-1}
+  .form-body,.hist-body{padding:12px!important}
+  .fbtns .btn{width:100%;justify-content:center}
+}
+
+@media (max-width:480px){
+  /* FIX: prevent page-level overflow from rigid table/grid widths on phones */
+  .tw,.hist-list,.stock-card,.chart-card,.analytics-grid,.toolbar,.search-wrap{min-width:0;max-width:100%}
+  .thead,.tr,.tfoot,.hist-thead,.hist-tr,.stock-card-head,.stock-row{width:100%;min-width:0}
+  .tgrid-p,.hist-thead,.hist-tr,.stock-card-head,.stock-row,.stock-thead,.stock-tr{grid-template-columns:1fr!important}
+
+  /* FIX: topbar compaction for 320–430px */
+  #topbar{padding:0 8px;gap:6px}
+  .topbar-title{font-size:13px;max-width:38vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .topbar-r > div:first-child{max-width:46vw;padding:2px 6px}
+  .theme-btn{width:20px;height:20px}
+
+  /* FIX: enforce single-column forms and controls on phone widths */
+  .form-body,.hist-body{grid-template-columns:1fr!important;padding:10px!important}
+  .form-body .fg,.hist-body .fg,.form-body .fbtns,.hist-body .fbtns{grid-column:1/-1}
+  .fbtns,.stock-input-wrap{width:100%;min-width:0}
+  .fbtns .btn,.stock-input-wrap input{width:100%}
+  .btn{max-width:100%}
+
+  /* FIX: mobile nav and content spacing stay inside viewport */
+  .mob-nav-btn{min-width:0;padding:6px 8px}
+  #main{padding:10px 8px 78px}
 }
 .minstock-wrap{display:flex;align-items:center;gap:6px}
 .minstock-wrap input{width:55px;padding:4px 8px;font-size:12px;text-align:center}
