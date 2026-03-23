@@ -449,9 +449,9 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 // ══════════════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════════════
-var products=[], folders=[], sales=[], purchases=[];
+var products=[], folders=[], sales=[], purchases=[], customNotes=[];
 var editId=null, editFolderId=null;
-var nextId=1, nextFolderId=1, nextSaleId=1, nextPurchaseId=1;
+var nextId=1, nextFolderId=1, nextSaleId=1, nextPurchaseId=1, nextCustomNoteId=1;
 var selectedFolder=null;
 var currentTab='products';
 var historyTab='sales'; // 'sales' | 'purchases'
@@ -551,6 +551,12 @@ function migrateData(){
     if(pu.note===undefined)pu.note='';
     if(pu.supplier===undefined)pu.supplier='';
   });
+  customNotes.forEach(function(n){
+    n.date=normalizeDate(n.date);
+    if(n.title===undefined)n.title='';
+    if(n.text===undefined)n.text='';
+    if(typeof n.id!=='number')n.id=nextCustomNoteId++;
+  });
   recalcStockFromHistory();
 }
 var calcFor=function(list){
@@ -589,7 +595,7 @@ var filteredProducts=function(){
 // STORAGE
 // ══════════════════════════════════════════════════════
 function persist(){
-  try{localStorage.setItem('ptv5',JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange}));}catch(e){}
+  try{localStorage.setItem('ptv5',JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextCustomNoteId:nextCustomNoteId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange}));}catch(e){}
   var f=$('flash');if(f){f.classList.add('on');setTimeout(function(){f.classList.remove('on');},1500);}
   liveUpdate();
 }
@@ -600,12 +606,12 @@ function loadData(){
   try{
     if(raw){
       var d=JSON.parse(raw);
-      if(Array.isArray(d)){products=d;folders=[];sales=[];purchases=[];}
-      else{products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;if(d.theme)currentTheme=d.theme;if(d.discountType)discountType=d.discountType;if(d.analyticsRange)analyticsRange=d.analyticsRange;}
+      if(Array.isArray(d)){products=d;folders=[];sales=[];purchases=[];customNotes=[];}
+      else{products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];customNotes=d.customNotes||[];nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;nextCustomNoteId=d.nextCustomNoteId||customNotes.length+1;if(d.theme)currentTheme=d.theme;if(d.discountType)discountType=d.discountType;if(d.analyticsRange)analyticsRange=d.analyticsRange;}
     }
   }catch(e){}
   migrateData();
-  try{localStorage.setItem('ptv5',JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange}));}catch(e){}
+  try{localStorage.setItem('ptv5',JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextCustomNoteId:nextCustomNoteId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange}));}catch(e){}
 }
 
 // ══════════════════════════════════════════════════════
@@ -1453,6 +1459,7 @@ function countNotesByDay(){
   var total=0;
   sales.forEach(function(s){if(String(s.note||'').trim())total++;});
   purchases.forEach(function(pu){if(String(pu.note||'').trim())total++;});
+  customNotes.forEach(function(n){if(String(n.text||'').trim())total++;});
   return {totalNotes:total};
 }
 
@@ -1495,10 +1502,45 @@ function collectNotesByDay(){
       extra:pu.supplier?('🏭 '+pu.supplier):''
     });
   });
+  customNotes.forEach(function(n){
+    var text=String(n.text||'').trim();
+    if(!text)return;
+    push(n.date,'custom',{
+      type:'custom',
+      id:n.id,
+      productName:String(n.title||'').trim()||'Личная заметка',
+      qty:0,
+      amount:0,
+      note:text,
+      extra:''
+    });
+  });
   return Object.keys(grouped).sort(function(a,b){return String(b).localeCompare(String(a));}).map(function(day){
     var items=grouped[day].slice().sort(function(a,b){return (b.id||0)-(a.id||0);});
     return {date:day,items:items};
   });
+}
+
+function addCustomNote(){
+  var date=$('cn-date')?$('cn-date').value:isoToday();
+  var title=$('cn-title')?$('cn-title').value.trim():'';
+  var text=$('cn-text')?$('cn-text').value.trim():'';
+  if(!text){
+    var t=$('cn-text');
+    if(t){t.style.borderColor='var(--red)';setTimeout(function(){t.style.borderColor='';},1200);}
+    return;
+  }
+  customNotes.push({id:nextCustomNoteId++,date:normalizeDate(date),title:title,text:text});
+  persist();render();
+}
+
+function delCustomNote(id){
+  var note=null;
+  for(var i=0;i<customNotes.length;i++)if(customNotes[i].id===id){note=customNotes[i];break;}
+  if(!note)return;
+  customNotes=customNotes.filter(function(n){return n.id!==id;});
+  showUndo('Заметка удалена',function(){customNotes.push(note);});
+  persist();render();
 }
 
 function renderNotes(){
@@ -1510,15 +1552,30 @@ function renderNotes(){
 
   if(!localStorage.getItem('hide-tip-notes')){
     var tip=document.createElement('div');tip.className='info-banner anim';
-    tip.innerHTML='<div class="info-banner-icon">📝</div><div class="info-banner-body"><div class="info-banner-title">Вкладка «Заметки»</div><div class="info-banner-text">Здесь собраны комментарии из продаж и поставок, сгруппированные по дням. Добавляйте комментарии во вкладке «История», чтобы фиксировать детали сделок, причины скидок и условия поставок.</div></div><button class="info-banner-close" onclick="localStorage.setItem(\'hide-tip-notes\',1);this.closest(\'.info-banner\').remove()">✕</button>';
+    tip.innerHTML='<div class="info-banner-icon">📝</div><div class="info-banner-body"><div class="info-banner-title">Вкладка «Заметки»</div><div class="info-banner-text">Здесь собраны комментарии из продаж и поставок, сгруппированные по дням. Можно добавлять и личные заметки вручную: дата, заголовок и текст.</div></div><button class="info-banner-close" onclick="localStorage.setItem(\'hide-tip-notes\',1);this.closest(\'.info-banner\').remove()">✕</button>';
     main.appendChild(tip);
   }
 
   var summary=document.createElement('div');summary.className='sg anim';
   summary.innerHTML=
     '<div class="sc purple"><div class="sc-icon">🗓️</div><div class="sc-label">Дней с заметками</div><div class="sc-val">'+grouped.length+'</div><div class="sc-sub">Группировка по датам</div></div>'+
-    '<div class="sc blue"><div class="sc-icon">📝</div><div class="sc-label">Всего заметок</div><div class="sc-val">'+notesTotal+'</div><div class="sc-sub">Продажи и поставки</div></div>';
+    '<div class="sc blue"><div class="sc-icon">📝</div><div class="sc-label">Всего заметок</div><div class="sc-val">'+notesTotal+'</div><div class="sc-sub">Продажи, поставки и личные</div></div>';
   main.appendChild(summary);
+
+  var form=document.createElement('div');form.className='hist-form anim';
+  form.innerHTML=
+    '<div class="form-head"><div class="fh-dot yellow"></div><div class="fh-title">Добавить личную заметку</div><div class="fh-sub">Будет показана в этой вкладке по дате</div></div>'+
+    '<div class="hist-body" style="grid-template-columns:1fr 1fr auto">'+
+      '<div class="fg"><label class="fl">Дата</label><input type="date" id="cn-date" value="'+isoToday()+'"></div>'+
+      '<div class="fg"><label class="fl">Заголовок (необязательно)</label><input type="text" id="cn-title" placeholder="Например: План на день"></div>'+
+      '<div class="fbtns" style="padding-top:22px"><button class="btn btn-primary" onclick="addCustomNote()">＋ Добавить</button></div>'+
+    '</div>'+
+    '<div class="hist-body" style="padding-top:0">'+
+      '<div class="fg"><label class="fl">Текст заметки</label><textarea class="notes-area" id="cn-text" placeholder="Введите заметку..."></textarea></div>'+
+    '</div>';
+  main.appendChild(form);
+  var cnText=form.querySelector('#cn-text');
+  if(cnText)cnText.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter')addCustomNote();});
 
   if(!grouped.length){
     var empty=document.createElement('div');empty.className='tw anim';
@@ -1533,18 +1590,23 @@ function renderNotes(){
     group.items.forEach(function(item){
       var badge=item.type==='sale'
         ?'<span class="stock-badge stock-ok" style="font-size:10px">Продажа</span>'
-        :'<span class="stock-badge stock-low" style="font-size:10px">Поставка</span>';
-      var amountColor=item.type==='sale'?'var(--green)':'var(--blue)';
+        :(item.type==='purchase'
+          ?'<span class="stock-badge stock-low" style="font-size:10px">Поставка</span>'
+          :'<span class="stock-badge" style="font-size:10px;background:var(--purpledim);color:var(--purple)">Личная</span>');
+      var amountColor=item.type==='sale'?'var(--green)':(item.type==='purchase'?'var(--blue)':'var(--purple)');
       var profitHtml=item.type==='sale'
         ?'<span style="font-size:11px;color:'+(item.profit>=0?'var(--green)':'var(--red)')+'"> · прибыль '+(item.profit>=0?'+':'−')+'₽'+fmtD(Math.abs(item.profit))+'</span>'
+        :'';
+      var deleteBtn=item.type==='custom'
+        ?'<button class="bico bico-d" onclick="delCustomNote('+item.id+')" title="Удалить заметку">✕</button>'
         :'';
       rows+='<div style="padding:10px 0;border-top:1px solid var(--border)">'+
           '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
             '<div style="display:flex;align-items:center;gap:8px;min-width:0">'+badge+'<b style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(item.productName)+'</b></div>'+
-            '<div style="font-size:12px;color:'+amountColor+';font-weight:700">₽'+fmtD(item.amount)+'</div>'+
+            '<div style="display:flex;align-items:center;gap:8px"><div style="font-size:12px;color:'+amountColor+';font-weight:700">'+(item.type==='custom'?'—':'₽'+fmtD(item.amount))+'</div>'+deleteBtn+'</div>'+
           '</div>'+
           '<div style="margin-top:6px;font-size:13px;color:var(--text)">🗒️ '+esc(item.note)+'</div>'+
-          '<div style="margin-top:6px;font-size:11px;color:var(--text3)">Количество: '+item.qty+' шт'+profitHtml+(item.extra?' · '+esc(item.extra):'')+'</div>'+
+          '<div style="margin-top:6px;font-size:11px;color:var(--text3)">'+(item.type==='custom'?'Личная заметка':('Количество: '+item.qty+' шт'+profitHtml+(item.extra?' · '+esc(item.extra):'')))+'</div>'+
         '</div>';
     });
     card.innerHTML='<div class="chart-title">'+group.date+'</div><div class="chart-sub">Записей: '+group.items.length+'</div>'+rows;
@@ -2176,7 +2238,7 @@ function buildDocumentationHtml(){
       '<li>После каждой поставки вносите приход, чтобы остатки обновлялись корректно.</li>',
       '<li>Проверяйте вкладку «Склад», чтобы не допускать дефицита и своевременно пополнять запас.</li>',
       '<li>Раз в день открывайте «Аналитику» и отслеживайте прибыль и эффективность ассортимента.</li>',
-      '<li>Для быстрых комментариев используйте вкладку «Заметки» — там всё сгруппировано по дням.</li>',
+      '<li>Для быстрых комментариев используйте вкладку «Заметки» — там всё сгруппировано по дням, и можно добавлять личные заметки вручную.</li>',
     '</ol>',
     '<h3>Экспорт и сохранность данных</h3>',
     '<ul>',
@@ -2197,7 +2259,7 @@ function closeDocumentation(evt){
   $('docs-modal').classList.remove('show');
 }
 function doExport(){
-  var data={products:products,folders:folders,sales:sales,purchases:purchases,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange};
+  var data={products:products,folders:folders,sales:sales,purchases:purchases,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextCustomNoteId:nextCustomNoteId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange};
   var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   var url=URL.createObjectURL(blob);
   var a=document.createElement('a');a.href=url;a.download='profit_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url);
@@ -2315,8 +2377,8 @@ $('imp').addEventListener('change',function(e){
   reader.onload=function(ev){
     try{
       var d=JSON.parse(ev.target.result);
-      if(Array.isArray(d)){products=d;folders=[];sales=[];purchases=[];nextId=d.length+1;nextFolderId=1;nextSaleId=1;nextPurchaseId=1;}
-      else{products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;}
+      if(Array.isArray(d)){products=d;folders=[];sales=[];purchases=[];customNotes=[];nextId=d.length+1;nextFolderId=1;nextSaleId=1;nextPurchaseId=1;nextCustomNoteId=1;}
+      else{products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];customNotes=d.customNotes||[];nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;nextCustomNoteId=d.nextCustomNoteId||customNotes.length+1;}
       migrateData();
       editId=null;selectedFolder=null;persist();render();
     }catch(err){alert('Ошибка: '+err.message);}
@@ -2368,7 +2430,7 @@ var AUTO_BACKUP_INTERVAL=2*60*60*1000; // 2 hours
 var LAST_AUTO_KEY='ptv5_last_auto_backup';
 
 function getBackupData(){
-  return JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange});
+  return JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextCustomNoteId:nextCustomNoteId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange});
 }
 
 function loadBackups(){
@@ -2420,9 +2482,9 @@ function restoreBackup(ts){
   if(!confirm('Восстановить копию от '+entry.label+'?\n\nТекущие данные будут перезаписаны.'))return;
   try{
     var d=JSON.parse(entry.data);
-    products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];
+    products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];customNotes=d.customNotes||[];
     nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;
-    nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;
+    nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;nextCustomNoteId=d.nextCustomNoteId||customNotes.length+1;
     if(d.theme)currentTheme=d.theme;if(d.discountType)discountType=d.discountType;if(d.analyticsRange)analyticsRange=d.analyticsRange;
     migrateData();
     persist();applyTheme();render();
