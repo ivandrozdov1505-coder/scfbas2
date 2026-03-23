@@ -286,6 +286,9 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
     <button class="mob-nav-btn" id="mn-stock" onclick="switchTab('stock');closeMobileSidebar()">
       <span class="mn-ic">🏪</span>Склад
     </button>
+    <button class="mob-nav-btn" id="mn-notes" onclick="switchTab('notes');closeMobileSidebar()">
+      <span class="mn-ic">📝</span>Заметки
+    </button>
     <button class="mob-nav-btn" id="mn-menu" onclick="toggleMobileSidebar()">
       <span class="mn-ic">☰</span>Меню
     </button>
@@ -375,6 +378,9 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
     </button>
     <button class="sb-nav-btn" id="nav-stock" onclick="switchTab('stock')">
       <span class="ic">🏪</span> Склад
+    </button>
+    <button class="sb-nav-btn" id="nav-notes" onclick="switchTab('notes')">
+      <span class="ic">📝</span> Заметки <span class="ct" id="cnt-notes">0</span>
     </button>
 
     <div class="sb-divider"></div>
@@ -607,7 +613,7 @@ function loadData(){
 // ══════════════════════════════════════════════════════
 function switchTab(tab){
   currentTab=tab;
-  ['products','analytics','history','stock'].forEach(function(t){
+  ['products','analytics','history','stock','notes'].forEach(function(t){
     var btn=$('nav-'+t);
     if(btn)btn.className='sb-nav-btn'+(t===tab?' active':'');
   });
@@ -628,6 +634,7 @@ function renderSidebar(){
   $('cnt-all').textContent=products.length;
   $('cnt-folder-all').textContent=products.length;
   $('cnt-hist').textContent=sales.length+purchases.length;
+  $('cnt-notes').textContent=countNotesByDay().totalNotes;
   $('sb-rev').textContent='₽'+fmt(all.rev);
   $('sb-exp').textContent='₽'+fmt(all.exp);
   var sp=$('sb-pro');sp.textContent=(all.profit>=0?'+':'-')+'₽'+fmt(Math.abs(all.profit));sp.className=all.profit>=0?'g':'r';
@@ -664,6 +671,7 @@ function render(){
   else if(currentTab==='analytics')renderAnalytics();
   else if(currentTab==='history')renderHistory();
   else if(currentTab==='stock')renderStock();
+  else if(currentTab==='notes')renderNotes();
   setTimeout(initMobileBanners,10);
 }
 
@@ -1440,6 +1448,110 @@ function delPurchase(id){
   persist();render();
 }
 
+
+function countNotesByDay(){
+  var total=0;
+  sales.forEach(function(s){if(String(s.note||'').trim())total++;});
+  purchases.forEach(function(pu){if(String(pu.note||'').trim())total++;});
+  return {totalNotes:total};
+}
+
+function collectNotesByDay(){
+  var grouped={};
+  function push(date,type,entry){
+    var d=normalizeDate(date);
+    if(!grouped[d])grouped[d]=[];
+    grouped[d].push(entry);
+  }
+  sales.forEach(function(s){
+    var note=String(s.note||'').trim();
+    if(!note)return;
+    var p=productById(s.productId);
+    var amount=(Number(s.qty)||0)*(Number(s.price)||0);
+    var profit=typeof s.profitAtSale==='number'?s.profitAtSale:getActualProfitForSale(s,p);
+    push(s.date,'sales',{
+      type:'sale',
+      id:s.id,
+      productName:p?p.name:'Удалённый товар',
+      qty:Number(s.qty)||0,
+      amount:amount,
+      note:note,
+      extra:s.customer?('👤 '+s.customer):'',
+      profit:profit
+    });
+  });
+  purchases.forEach(function(pu){
+    var note=String(pu.note||'').trim();
+    if(!note)return;
+    var p=productById(pu.productId);
+    var amount=(Number(pu.qty)||0)*(Number(pu.price)||0);
+    push(pu.date,'purchases',{
+      type:'purchase',
+      id:pu.id,
+      productName:p?p.name:'Удалённый товар',
+      qty:Number(pu.qty)||0,
+      amount:amount,
+      note:note,
+      extra:pu.supplier?('🏭 '+pu.supplier):''
+    });
+  });
+  return Object.keys(grouped).sort(function(a,b){return String(b).localeCompare(String(a));}).map(function(day){
+    var items=grouped[day].slice().sort(function(a,b){return (b.id||0)-(a.id||0);});
+    return {date:day,items:items};
+  });
+}
+
+function renderNotes(){
+  var grouped=collectNotesByDay();
+  var notesTotal=grouped.reduce(function(acc,g){return acc+g.items.length;},0);
+  $('page-title').textContent='Заметки';
+  $('page-sub').textContent='По дням: '+grouped.length+' · Записей: '+notesTotal;
+  var main=$('main');
+
+  if(!localStorage.getItem('hide-tip-notes')){
+    var tip=document.createElement('div');tip.className='info-banner anim';
+    tip.innerHTML='<div class="info-banner-icon">📝</div><div class="info-banner-body"><div class="info-banner-title">Вкладка «Заметки»</div><div class="info-banner-text">Здесь собраны комментарии из продаж и поставок, сгруппированные по дням. Добавляйте комментарии во вкладке «История», чтобы фиксировать детали сделок, причины скидок и условия поставок.</div></div><button class="info-banner-close" onclick="localStorage.setItem(\'hide-tip-notes\',1);this.closest(\'.info-banner\').remove()">✕</button>';
+    main.appendChild(tip);
+  }
+
+  var summary=document.createElement('div');summary.className='sg anim';
+  summary.innerHTML=
+    '<div class="sc purple"><div class="sc-icon">🗓️</div><div class="sc-label">Дней с заметками</div><div class="sc-val">'+grouped.length+'</div><div class="sc-sub">Группировка по датам</div></div>'+
+    '<div class="sc blue"><div class="sc-icon">📝</div><div class="sc-label">Всего заметок</div><div class="sc-val">'+notesTotal+'</div><div class="sc-sub">Продажи и поставки</div></div>';
+  main.appendChild(summary);
+
+  if(!grouped.length){
+    var empty=document.createElement('div');empty.className='tw anim';
+    empty.innerHTML='<div class="empty"><div class="empty-icon">🗒️</div><div class="empty-text">Пока нет заметок. Добавьте комментарий в продажу или поставку во вкладке «История».</div></div>';
+    main.appendChild(empty);
+    return;
+  }
+
+  grouped.forEach(function(group){
+    var card=document.createElement('div');card.className='chart-card anim';
+    var rows='';
+    group.items.forEach(function(item){
+      var badge=item.type==='sale'
+        ?'<span class="stock-badge stock-ok" style="font-size:10px">Продажа</span>'
+        :'<span class="stock-badge stock-low" style="font-size:10px">Поставка</span>';
+      var amountColor=item.type==='sale'?'var(--green)':'var(--blue)';
+      var profitHtml=item.type==='sale'
+        ?'<span style="font-size:11px;color:'+(item.profit>=0?'var(--green)':'var(--red)')+'"> · прибыль '+(item.profit>=0?'+':'−')+'₽'+fmtD(Math.abs(item.profit))+'</span>'
+        :'';
+      rows+='<div style="padding:10px 0;border-top:1px solid var(--border)">'+
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
+            '<div style="display:flex;align-items:center;gap:8px;min-width:0">'+badge+'<b style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(item.productName)+'</b></div>'+
+            '<div style="font-size:12px;color:'+amountColor+';font-weight:700">₽'+fmtD(item.amount)+'</div>'+
+          '</div>'+
+          '<div style="margin-top:6px;font-size:13px;color:var(--text)">🗒️ '+esc(item.note)+'</div>'+
+          '<div style="margin-top:6px;font-size:11px;color:var(--text3)">Количество: '+item.qty+' шт'+profitHtml+(item.extra?' · '+esc(item.extra):'')+'</div>'+
+        '</div>';
+    });
+    card.innerHTML='<div class="chart-title">'+group.date+'</div><div class="chart-sub">Записей: '+group.items.length+'</div>'+rows;
+    main.appendChild(card);
+  });
+}
+
 // ══════════════════════════════════════════════════════
 // STOCK TAB
 // ══════════════════════════════════════════════════════
@@ -2064,6 +2176,7 @@ function buildDocumentationHtml(){
       '<li>После каждой поставки вносите приход, чтобы остатки обновлялись корректно.</li>',
       '<li>Проверяйте вкладку «Склад», чтобы не допускать дефицита и своевременно пополнять запас.</li>',
       '<li>Раз в день открывайте «Аналитику» и отслеживайте прибыль и эффективность ассортимента.</li>',
+      '<li>Для быстрых комментариев используйте вкладку «Заметки» — там всё сгруппировано по дням.</li>',
     '</ol>',
     '<h3>Экспорт и сохранность данных</h3>',
     '<ul>',
@@ -2241,7 +2354,7 @@ function closeMobileSidebar(){
 var _origSwitchTab=switchTab;
 switchTab=function(tab){
   _origSwitchTab(tab);
-  ['products','analytics','history','stock'].forEach(function(t){
+  ['products','analytics','history','stock','notes'].forEach(function(t){
     var mb=$('mn-'+t);if(mb)mb.className='mob-nav-btn'+(t===tab?' active':'');
   });
 };
