@@ -162,12 +162,19 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 
 .date-chip{display:inline-block;font-size:11px;font-weight:600;color:var(--text3);background:var(--s3);padding:3px 8px;border-radius:6px;white-space:nowrap}
 .minstock-wrap{display:flex;align-items:center;gap:6px}.minstock-wrap input{width:60px;min-height:36px;padding:4px 8px;font-size:12px}
+.stock-row .rcell,.stock-tr .rcell{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stock-num-wrap{display:flex;align-items:center;gap:6px;min-width:0;flex-wrap:wrap}
+.stock-threshold{display:flex;flex-direction:column;gap:6px;min-width:0}
+.stock-threshold .row{display:flex;align-items:center;gap:6px;min-width:0}
+.stock-threshold input[type=number]{width:100%;max-width:74px;min-width:0}
+.stock-threshold-toggle{font-size:10px;color:var(--text3);display:inline-flex;align-items:center;gap:4px}
+.stock-off{background:var(--s3);color:var(--text2)}
 
 /* FIX: desktop stock layout */
 @media (min-width:768px){
   .stock-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;overflow:hidden}
   .stock-card-head,.stock-thead{display:grid!important;padding:10px 18px;gap:10px;background:var(--s2);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--text3);text-transform:uppercase;align-items:center}
-  .stock-card-head,.stock-row,.stock-thead,.stock-tr{grid-template-columns:28px 1.8fr 90px 80px 80px 80px 120px 120px 180px 100px 72px 80px!important}
+  .stock-card-head,.stock-row,.stock-thead,.stock-tr{grid-template-columns:28px minmax(170px,1.8fr) minmax(90px,1fr) minmax(72px,.7fr) minmax(72px,.7fr) minmax(72px,.7fr) minmax(76px,.8fr) minmax(110px,1fr) minmax(110px,1fr) minmax(170px,1.7fr) minmax(110px,1fr) minmax(80px,.8fr)!important}
   .stock-row,.stock-tr{display:grid!important;border:none;border-radius:0;padding:14px 18px;margin:0;gap:10px;border-bottom:1px solid var(--border);background:transparent!important;align-items:center}
   .stock-row:last-child,.stock-tr:last-child{border-bottom:none}
   .stock-row:hover,.stock-tr:hover{background:var(--s2)!important}
@@ -247,7 +254,7 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
   .tfoot{border-top:1px solid var(--border);border-bottom:none}
   .thead,.tr,.tfoot{grid-template-columns:28px 1.6fr 90px 1fr 1fr 1fr 1fr 1.1fr 70px 1fr 80px!important}
   .hist-thead,.hist-tr{grid-template-columns:100px 2fr 1fr 1fr 1fr 1fr 36px!important}
-  .stock-card-head,.stock-row,.stock-thead,.stock-tr{grid-template-columns:28px 2fr 90px 1fr 1fr 160px 80px!important}
+  .stock-card-head,.stock-row,.stock-thead,.stock-tr{grid-template-columns:28px minmax(170px,1.8fr) minmax(90px,1fr) minmax(72px,.7fr) minmax(72px,.7fr) minmax(72px,.7fr) minmax(76px,.8fr) minmax(110px,1fr) minmax(110px,1fr) minmax(170px,1.7fr) minmax(110px,1fr) minmax(80px,.8fr)!important}
 
   #tbody{display:block;padding:0}
   .tr,.hist-tr,.stock-row,.stock-tr{display:grid!important;border:none;border-radius:0;padding:12px 18px;margin:0;gap:10px;border-bottom:1px solid var(--border);background:transparent!important;align-items:center}
@@ -481,6 +488,9 @@ var esc=function(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
 var productById=function(id){for(var i=0;i<products.length;i++)if(products[i].id===id)return products[i];return null};
 var folderById=function(id){for(var i=0;i<folders.length;i++)if(folders[i].id===id)return folders[i];return null};
 var clampNum=function(n,min){return isNaN(n)?min:Math.max(min,n)};
+var minStockValue=function(p){var v=parseInt(p&&p.minStock,10);return(isNaN(v)||v<0)?5:v;};
+var minStockEnabled=function(p){return !!p&&p.minStockEnabled!==false;};
+var isLowStockProduct=function(p){if(!p)return false;var stock=Number(p.stock)||0;if(stock<=0||!minStockEnabled(p))return false;return stock<=minStockValue(p);};
 var isValidDateStr=function(s){return /^\d{4}-\d{2}-\d{2}$/.test(String(s||''))};
 var isoToday=function(){return new Date().toISOString().slice(0,10)};
 var parseISO=function(s){if(!isValidDateStr(s))return null;var d=new Date(s+'T00:00:00');return isNaN(d.getTime())?null:d;};
@@ -521,6 +531,7 @@ function migrateData(){
   products.forEach(function(p){
     if(p.stock===undefined)p.stock=Number(p.qty)||0;
     if(p.minStock===undefined)p.minStock=5;
+    if(p.minStockEnabled===undefined)p.minStockEnabled=true;
     if(p.notes===undefined)p.notes='';
     if(p.article===undefined)p.article='';
     if(p.image===undefined)p.image='';
@@ -817,7 +828,7 @@ function renderTable(list,t){
     var folderCell=folder?'<div class="folder-pill" style="background:'+folder.color+'22;border:1px solid '+folder.color+'33"><div class="fp-dot" style="background:'+folder.color+'"></div><span class="fp-name">'+esc(folder.name)+'</span></div>':'<span style="color:var(--text3);font-size:11px">—</span>';
     var noteCell=p.notes?'<span class="note-chip" title="'+esc(p.notes)+'">📝 '+esc(p.notes)+'</span>':'<span style="color:var(--text3);font-size:11px">—</span>';
     var stockVal=p.stock||0;
-    var stockColor=stockVal===0?'var(--red)':stockVal<=(p.minStock||5)?'var(--yellow)':'var(--green)';
+    var stockColor=stockVal===0?'var(--red)':isLowStockProduct(p)?'var(--yellow)':'var(--green)';
     row.innerHTML=
       '<div class="rnum">'+(i+1)+'</div>'+
       '<div class="rname" title="'+esc(p.name)+'">'+esc(p.name)+(p.article?'<div style="font-size:10px;color:var(--text3)">#'+esc(p.article)+'</div>':'')+'</div>'+
@@ -1644,7 +1655,7 @@ function renderStock(){
   // ── СВОДНЫЕ КАРТОЧКИ ──
   var total=products.length;
   var outStock=products.filter(function(p){return(p.stock||0)===0;}).length;
-  var lowP=products.filter(function(p){return(p.stock||0)>0&&(p.stock||0)<=(p.minStock||5);}).length;
+  var lowP=products.filter(function(p){return isLowStockProduct(p);}).length;
   var okP=total-outStock-lowP;
   var totalSold=sales.reduce(function(s,x){return s+x.qty;},0);
   var totalBought=purchases.reduce(function(s,x){return s+x.qty;},0);
@@ -1656,10 +1667,10 @@ function renderStock(){
     '<div class="sc red"><div class="sc-icon">🚫</div><div class="sc-label">Нет в наличии</div><div class="sc-val">'+outStock+'</div><div class="sc-sub">Требуют пополнения</div></div>'+
     '<div class="sc blue"><div class="sc-icon">🔄</div><div class="sc-label">Оборот</div><div class="sc-val">'+totalSold+'</div><div class="sc-sub">шт продано всего</div></div>';
   main.appendChild(cards);
-  var restockNeed=products.filter(function(p){return (p.stock||0)<=(p.minStock||0);});
+  var restockNeed=products.filter(function(p){return isLowStockProduct(p);});
   var restockCard=document.createElement('div');restockCard.className='tw anim';
   restockCard.innerHTML='<div style="padding:12px 14px;border-bottom:1px solid var(--border);font-weight:700">Need restock: '+restockNeed.length+'</div>'+
-    (restockNeed.length?restockNeed.map(function(p){var need=Math.max(0,(p.minStock||0)-(p.stock||0));return '<div style="padding:9px 14px;font-size:12px;border-top:1px solid var(--border)">'+esc(p.name)+' · нехватка: <b style="color:var(--yellow)">'+need+' шт</b></div>';}).join(''):'<div style="padding:12px 14px;color:var(--text3);font-size:12px">Критичных позиций нет</div>');
+    (restockNeed.length?restockNeed.map(function(p){var need=Math.max(0,minStockValue(p)-(p.stock||0));return '<div style="padding:9px 14px;font-size:12px;border-top:1px solid var(--border)">'+esc(p.name)+' · нехватка: <b style="color:var(--yellow)">'+need+' шт</b></div>';}).join(''):'<div style="padding:12px 14px;color:var(--text3);font-size:12px">Критичных позиций нет</div>');
   main.appendChild(restockCard);
   var stockToolbar=document.createElement('div');stockToolbar.className='toolbar anim';
   var folderOpts='<option value="all">Все папки</option>';
@@ -1688,7 +1699,7 @@ function renderStock(){
   }
 
   // ── ТАБЛИЦА ──
-  var GCOLS='28px 1.8fr 90px 80px 80px 80px 120px 120px 180px 100px 72px';
+  var GCOLS='28px minmax(170px,1.8fr) minmax(90px,1fr) minmax(72px,.7fr) minmax(72px,.7fr) minmax(72px,.7fr) minmax(76px,.8fr) minmax(110px,1fr) minmax(110px,1fr) minmax(170px,1.7fr) minmax(110px,1fr) minmax(80px,.8fr)';
   var card=document.createElement('div');card.className='stock-card anim';
 
   var headDiv=document.createElement('div');
@@ -1714,7 +1725,7 @@ function renderStock(){
 
   var pre=products.slice().filter(function(p){
     if(stockFilters.folderId!=='all' && String(p.folderId||'')!==String(stockFilters.folderId))return false;
-    if(stockFilters.problemOnly)return (p.stock||0)<=(p.minStock||0);
+    if(stockFilters.problemOnly)return (p.stock||0)===0||isLowStockProduct(p);
     return true;
   });
   var sKey=stockFilters.sort||'stock_asc';
@@ -1754,13 +1765,15 @@ function renderStock(){
     var sold=soldByProduct[p.id]||0;
     var purch=purchasedByProduct[p.id]||0;
     var stock=p.stock||0;
-    var min=p.minStock||5;
+    var min=minStockValue(p);
+    var thresholdEnabled=minStockEnabled(p);
     var total=sold+stock;
     var soldW=total>0?Math.round(sold/total*100):0;
     var leftW=100-soldW;
-    var barColor=stock===0?'var(--red)':stock<=min?'var(--yellow)':'var(--green)';
-    var badge=stock===0?'stock-out':stock<=min?'stock-low':'stock-ok';
-    var badgeText=stock===0?'Нет':stock<=min?'Мало':'В норме';
+    var isLow=isLowStockProduct(p);
+    var barColor=stock===0?'var(--red)':isLow?'var(--yellow)':'var(--green)';
+    var badge=stock===0?'stock-out':isLow?'stock-low':(!thresholdEnabled?'stock-off':'stock-ok');
+    var badgeText=stock===0?'Нет':isLow?'Мало':(!thresholdEnabled?'Порог выкл':'В норме');
     var firstSale=firstSaleByProduct[p.id]||null;
     var velocity=0;
     if(firstSale){
@@ -1800,7 +1813,7 @@ function renderStock(){
 
       // Продано / Остаток
       '<div>'+
-        '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:5px">'+
+        '<div class="stock-num-wrap" style="margin-bottom:5px">'+
           '<span data-role="sold-num" style="font-size:12px;font-weight:700;color:var(--red)">'+sold+'</span>'+
           '<span style="font-size:10px;color:var(--text3)">прод.</span>'+
           '<span style="color:var(--text3);font-size:10px">/</span>'+
@@ -1823,9 +1836,12 @@ function renderStock(){
       '</div>'+
 
       // Порог
-      '<div style="display:flex;align-items:center;gap:5px">'+
-        '<input type="number" min="0" value="'+min+'" style="width:48px;padding:5px 7px;font-size:12px;text-align:center;border-radius:6px" oninput="updateMinStock('+p.id+',this.value)">'+
-        '<span style="font-size:11px;color:var(--text3)">шт</span>'+
+      '<div class="stock-threshold">'+
+        '<label class="stock-threshold-toggle"><input type="checkbox" '+(thresholdEnabled?'checked':'')+' onchange="toggleMinStockEnabled('+p.id+',this.checked)"> Порог включён</label>'+
+        '<div class="row">'+
+          '<input type="number" min="0" value="'+min+'" '+(thresholdEnabled?'':'disabled')+' style="padding:5px 7px;font-size:12px;text-align:center;border-radius:6px" oninput="updateMinStock('+p.id+',this.value)">'+
+          '<span style="font-size:11px;color:var(--text3)">шт</span>'+
+        '</div>'+
       '</div>'+
 
       '<div><span class="stock-badge '+badge+'">'+badgeText+'</span>'+(daysLeft!==null?'<div style="font-size:10px;color:'+(daysLeft<14?'var(--red)':'var(--text3)')+';margin-top:4px">'+daysLeft+' дн.</div>':'<div style="font-size:10px;color:var(--text3);margin-top:4px">—</div>')+'</div>';
@@ -1856,16 +1872,17 @@ function liveUpdate(){
     products.forEach(function(p){
       var sold=soldMap[p.id]||0;
       var stock=p.stock||0;
-      var min=p.minStock||5;
+      var thresholdEnabled=minStockEnabled(p);
       var row=document.querySelector('[data-id="'+p.id+'"]');
       if(!row)return;
       // Обновляем числа и бар
       var total=sold+stock;
       var soldW=total>0?Math.round(sold/total*100):0;
       var leftW=100-soldW;
-      var barColor=stock===0?'var(--red)':stock<=min?'var(--yellow)':'var(--green)';
-      var badge=stock===0?'stock-out':stock<=min?'stock-low':'stock-ok';
-      var badgeText=stock===0?'Нет':stock<=min?'Мало':'В норме';
+      var isLow=isLowStockProduct(p);
+      var barColor=stock===0?'var(--red)':isLow?'var(--yellow)':'var(--green)';
+      var badge=stock===0?'stock-out':isLow?'stock-low':(!thresholdEnabled?'stock-off':'stock-ok');
+      var badgeText=stock===0?'Нет':isLow?'Мало':(!thresholdEnabled?'Порог выкл':'В норме');
       // Найти и обновить span остатка
       var spans=row.querySelectorAll('span[data-role]');
       spans.forEach(function(sp){
@@ -1882,6 +1899,8 @@ function liveUpdate(){
       // Бейдж
       var bdg=row.querySelector('.stock-badge');
       if(bdg){bdg.className='stock-badge '+badge;bdg.textContent=badgeText;}
+      var minInput=row.querySelector('.stock-threshold input[type=number]');
+      if(minInput)minInput.disabled=!thresholdEnabled;
     });
   }
 
@@ -1955,7 +1974,7 @@ function doAdd(){
     }
     editId=null;
   }else{
-    products.push({id:nextId++,name:name,article:article,image:img,wholesale:w,retail:r,qty:q,expenses:e,folderId:fid,stock:q,minStock:5,notes:notes});
+    products.push({id:nextId++,name:name,article:article,image:img,wholesale:w,retail:r,qty:q,expenses:e,folderId:fid,stock:q,minStock:5,minStockEnabled:true,notes:notes});
   }
   persist();render();
 }
@@ -2059,6 +2078,12 @@ function updateMinStock(id,val){
   p.minStock=Math.max(0,parseInt(val)||0);
   liveUpdate();
   debounce('minstock-'+id,function(){persist();},600);
+}
+function toggleMinStockEnabled(id,enabled){
+  var p=productById(id);if(!p)return;
+  p.minStockEnabled=!!enabled;
+  liveUpdate();
+  debounce('minstock-en-'+id,function(){persist();},300);
 }
 
 // ══════════════════════════════════════════════════════
@@ -2336,9 +2361,10 @@ function doExportExcel(){
   products.forEach(function(p,i){
     var f=p.folderId?folderById(p.folderId):null;
     var sold=sales.filter(function(s){return s.productId===p.id;}).reduce(function(sum,s){return sum+s.qty;},0);
-    var stock=p.stock||0;var min=p.minStock||5;
+    var stock=p.stock||0;var min=minStockValue(p);
     var status=stock===0?'Нет':'В норме';
-    if(stock>0&&stock<=min)status='Мало';
+    if(isLowStockProduct(p))status='Мало';
+    if(stock>0&&!minStockEnabled(p))status='Порог выкл';
     stRows.push(row([i+1,p.name,f?f.name:'',round2(p.qty),round2(sold),round2(stock),round2(min),status]));
   });
 
@@ -2362,8 +2388,8 @@ function doExportCSV(kind){
     rows.push(['date','product','qty','price','sum','supplier','note']);
     purchases.forEach(function(pu){var p=productById(pu.productId);if(!p)return;rows.push([pu.date,p.name,pu.qty,pu.price,pu.qty*pu.price,pu.supplier||'',pu.note||'']);});
   }else{
-    rows.push(['product','folder','stock','minStock','wholesale','retail','stockValueWholesale','stockValueRetail']);
-    products.forEach(function(p){var f=p.folderId?folderById(p.folderId):null;rows.push([p.name,f?f.name:'',p.stock||0,p.minStock||0,p.wholesale||0,p.retail||0,(p.stock||0)*(p.wholesale||0),(p.stock||0)*(p.retail||0)]);});
+    rows.push(['product','folder','stock','minStock','minStockEnabled','wholesale','retail','stockValueWholesale','stockValueRetail']);
+    products.forEach(function(p){var f=p.folderId?folderById(p.folderId):null;rows.push([p.name,f?f.name:'',p.stock||0,minStockValue(p),minStockEnabled(p)?1:0,p.wholesale||0,p.retail||0,(p.stock||0)*(p.wholesale||0),(p.stock||0)*(p.retail||0)]);});
   }
   var csv=rows.map(function(r){return r.map(csvEscape).join(';');}).join('\n');
   var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
