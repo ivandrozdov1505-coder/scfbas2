@@ -370,7 +370,7 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
   <div id="sidebar">
     <div class="sb-logo">
       <div class="logo-mark">P</div>
-      <div><div class="logo-text">ProfitBox</div><div class="logo-sub">v1.9</div></div>
+      <div><div class="logo-text">ProfitBox</div><div class="logo-sub">v2.4</div></div>
     </div>
 
     <div class="sb-section">Навигация</div>
@@ -456,9 +456,9 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 // ══════════════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════════════
-var products=[], folders=[], sales=[], purchases=[], expenseOps=[], customNotes=[];
+var products=[], folders=[], sales=[], purchases=[], expenseOps=[], customNotes=[], saleDocs=[], supplyDocs=[];
 var editId=null, editFolderId=null;
-var nextId=1, nextFolderId=1, nextSaleId=1, nextPurchaseId=1, nextExpenseId=1, nextCustomNoteId=1;
+var nextId=1, nextFolderId=1, nextSaleId=1, nextPurchaseId=1, nextExpenseId=1, nextCustomNoteId=1, nextSaleDocId=1, nextSupplyDocId=1, nextSaleLineId=1, nextSupplyLineId=1;
 var selectedFolder=null;
 var currentTab='products';
 var historyTab='sales'; // 'sales' | 'purchases' | 'expenses'
@@ -476,6 +476,7 @@ var analyticsRange={mode:'30d',from:'',to:''}; // today|7d|30d|custom
 var historyFilters={productId:'',folderId:'',from:'',to:'',type:'all',sort:'date_desc'};
 var stockFilters={folderId:'all',problemOnly:false,groupByFolder:false,sort:'stock_asc'};
 var lastDeletedAction=null;
+var currentImageData='',currentImageError='';
 
 // ══════════════════════════════════════════════════════
 // UTILS
@@ -516,6 +517,30 @@ function computeSaleSnapshot(p,qty,basePrice,finalPrice,discountPercent){
   var discountAtSale=Number(discountPercent)||0;
   var profitAtSale=revenue-(qty*costAtSale);
   return {costAtSale:costAtSale,retailAtSale:retailAtSale,discountAtSale:discountAtSale,profitAtSale:profitAtSale};
+}
+function getHistoryExpenses(includeLegacy){
+  var list=expenseOps.slice();
+  if(includeLegacy){
+    products.forEach(function(p){
+      var amount=Number(p.expenses)||0;
+      if(amount>0)list.push({id:'legacy-'+p.id,productId:p.id,amount:amount,date:'',note:'',category:'Базовый расход из карточки товара',legacy:true});
+    });
+  }
+  return list;
+}
+function rebuildFlatOpsFromDocs(){
+  sales=[];
+  purchases=[];
+  saleDocs.forEach(function(doc){
+    (doc.items||[]).forEach(function(it){
+      sales.push({id:it.id,docId:doc.id,productId:it.productId,qty:it.qty,price:it.price,discount:it.discount||0,date:doc.date,note:it.note||doc.note||'',customer:doc.customer||'',costAtSale:it.costAtSale,retailAtSale:it.retailAtSale,discountAtSale:it.discountAtSale,profitAtSale:it.profitAtSale});
+    });
+  });
+  supplyDocs.forEach(function(doc){
+    (doc.items||[]).forEach(function(it){
+      purchases.push({id:it.id,docId:doc.id,productId:it.productId,qty:it.qty,price:it.price,date:doc.date,note:it.note||doc.note||'',supplier:doc.supplier||''});
+    });
+  });
 }
 function recalcStockFromHistory(){
   var soldMap={}, purchasedMap={};
@@ -562,6 +587,45 @@ function migrateData(){
     if(pu.note===undefined)pu.note='';
     if(pu.supplier===undefined)pu.supplier='';
   });
+  if(!Array.isArray(saleDocs))saleDocs=[];
+  if(!Array.isArray(supplyDocs))supplyDocs=[];
+  if(!saleDocs.length&&sales.length){
+    sales.forEach(function(s){
+      saleDocs.push({id:nextSaleDocId++,date:normalizeDate(s.date),customer:s.customer||'',note:s.note||'',items:[{id:s.id||nextSaleLineId++,productId:s.productId,qty:s.qty,price:s.price,discount:s.discount||0,note:s.note||'',costAtSale:s.costAtSale,retailAtSale:s.retailAtSale,discountAtSale:s.discountAtSale,profitAtSale:s.profitAtSale}]});
+    });
+  }
+  if(!supplyDocs.length&&purchases.length){
+    purchases.forEach(function(pu){
+      supplyDocs.push({id:nextSupplyDocId++,date:normalizeDate(pu.date),supplier:pu.supplier||'',note:pu.note||'',items:[{id:pu.id||nextSupplyLineId++,productId:pu.productId,qty:pu.qty,price:pu.price,note:pu.note||''}]});
+    });
+  }
+  saleDocs.forEach(function(doc){
+    doc.date=normalizeDate(doc.date);
+    if(doc.customer===undefined)doc.customer='';
+    if(doc.note===undefined)doc.note='';
+    if(!Array.isArray(doc.items))doc.items=[];
+    doc.items.forEach(function(it){
+      if(typeof it.id!=='number')it.id=nextSaleLineId++;
+      it.productId=parseInt(it.productId,10);
+      it.qty=clampNum(parseInt(it.qty,10),1);
+      it.price=clampNum(parseFloat(it.price),0);
+      it.discount=clampNum(parseFloat(it.discount||0),0);
+      if(it.note===undefined)it.note='';
+    });
+  });
+  supplyDocs.forEach(function(doc){
+    doc.date=normalizeDate(doc.date);
+    if(doc.supplier===undefined)doc.supplier='';
+    if(doc.note===undefined)doc.note='';
+    if(!Array.isArray(doc.items))doc.items=[];
+    doc.items.forEach(function(it){
+      if(typeof it.id!=='number')it.id=nextSupplyLineId++;
+      it.productId=parseInt(it.productId,10);
+      it.qty=clampNum(parseInt(it.qty,10),1);
+      it.price=clampNum(parseFloat(it.price),0);
+      if(it.note===undefined)it.note='';
+    });
+  });
   expenseOps.forEach(function(ex){
     ex.date=normalizeDate(ex.date);
     ex.amount=clampNum(parseFloat(ex.amount),0);
@@ -576,6 +640,7 @@ function migrateData(){
     if(n.text===undefined)n.text='';
     if(typeof n.id!=='number')n.id=nextCustomNoteId++;
   });
+  rebuildFlatOpsFromDocs();
   recalcStockFromHistory();
 }
 var calcFor=function(list){
@@ -614,7 +679,8 @@ var filteredProducts=function(){
 // STORAGE
 // ══════════════════════════════════════════════════════
 function persist(){
-  try{localStorage.setItem('ptv5',JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,expenseOps:expenseOps,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextExpenseId:nextExpenseId,nextCustomNoteId:nextCustomNoteId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange}));}catch(e){}
+  rebuildFlatOpsFromDocs();
+  try{localStorage.setItem('ptv5',JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,saleDocs:saleDocs,supplyDocs:supplyDocs,expenseOps:expenseOps,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextExpenseId:nextExpenseId,nextCustomNoteId:nextCustomNoteId,nextSaleDocId:nextSaleDocId,nextSupplyDocId:nextSupplyDocId,nextSaleLineId:nextSaleLineId,nextSupplyLineId:nextSupplyLineId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange}));}catch(e){}
   var f=$('flash');if(f){f.classList.add('on');setTimeout(function(){f.classList.remove('on');},1500);}
   liveUpdate();
 }
@@ -626,11 +692,11 @@ function loadData(){
     if(raw){
       var d=JSON.parse(raw);
       if(Array.isArray(d)){products=d;folders=[];sales=[];purchases=[];expenseOps=[];customNotes=[];}
-      else{products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];expenseOps=d.expenseOps||[];customNotes=d.customNotes||[];nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;nextExpenseId=d.nextExpenseId||expenseOps.length+1;nextCustomNoteId=d.nextCustomNoteId||customNotes.length+1;if(d.theme)currentTheme=d.theme;if(d.discountType)discountType=d.discountType;if(d.analyticsRange)analyticsRange=d.analyticsRange;}
+      else{products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];saleDocs=d.saleDocs||[];supplyDocs=d.supplyDocs||[];expenseOps=d.expenseOps||[];customNotes=d.customNotes||[];nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;nextExpenseId=d.nextExpenseId||expenseOps.length+1;nextCustomNoteId=d.nextCustomNoteId||customNotes.length+1;nextSaleDocId=d.nextSaleDocId||saleDocs.length+1;nextSupplyDocId=d.nextSupplyDocId||supplyDocs.length+1;nextSaleLineId=d.nextSaleLineId||nextSaleId;nextSupplyLineId=d.nextSupplyLineId||nextPurchaseId;if(d.theme)currentTheme=d.theme;if(d.discountType)discountType=d.discountType;if(d.analyticsRange)analyticsRange=d.analyticsRange;}
     }
   }catch(e){}
   migrateData();
-  try{localStorage.setItem('ptv5',JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,expenseOps:expenseOps,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextExpenseId:nextExpenseId,nextCustomNoteId:nextCustomNoteId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange}));}catch(e){}
+  try{localStorage.setItem('ptv5',JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,saleDocs:saleDocs,supplyDocs:supplyDocs,expenseOps:expenseOps,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextExpenseId:nextExpenseId,nextCustomNoteId:nextCustomNoteId,nextSaleDocId:nextSaleDocId,nextSupplyDocId:nextSupplyDocId,nextSaleLineId:nextSaleLineId,nextSupplyLineId:nextSupplyLineId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange}));}catch(e){}
 }
 
 // ══════════════════════════════════════════════════════
@@ -714,6 +780,7 @@ function renderProducts(){
   $('page-sub').textContent=list.length+' товаров · Поиск: '+(searchQuery||'—');
 
   var main=$('main');
+  if(editId===null){currentImageData='';currentImageError='';}
 
   // ── ИНСТРУКЦИЯ ──
   if(!localStorage.getItem('hide-tip-products')){
@@ -745,7 +812,7 @@ function renderProducts(){
       '<div class="fg"><label class="fl">Папка</label><select id="fcat"><option value="">— Без папки —</option></select></div>'+
       '<div class="fbtns"><button class="btn btn-primary" id="badd" onclick="doAdd()">＋ Добавить</button><button class="btn btn-danger" id="bcan" style="display:none" onclick="doCancel()">Отмена</button></div>'+
     '</div>'+
-    '<div style="padding:0 20px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="fg"><label class="fl">Заметка (необязательно)</label><textarea class="notes-area" id="fnotes" placeholder="Поставщик, ссылка, условия..."></textarea></div><div class="fg"><label class="fl">Изображение (URL/base64, необязательно)</label><textarea class="notes-area" id="fimage" placeholder="https://... или data:image/..."></textarea></div></div>';
+    '<div style="padding:0 20px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="fg"><label class="fl">Заметка (необязательно)</label><textarea class="notes-area" id="fnotes" placeholder="Поставщик, ссылка, условия..."></textarea></div><div class="fg"><label class="fl">Изображение товара</label><input type="file" id="fimage-file" accept=\".png,.jpg,.jpeg,image/png,image/jpeg\" style=\"padding:8px\"><input type=\"text\" id=\"fimage-url\" placeholder=\"Старый формат: URL/base64 (необязательно)\" style=\"margin-top:8px\"><div id=\"fimage-error\" style=\"font-size:11px;color:var(--red);min-height:16px\"></div><div id=\"fimage-preview\" style=\"min-height:36px\"></div></div></div>';
   main.appendChild(formDiv);
 
   // Populate folders select
@@ -804,7 +871,8 @@ function renderProducts(){
       formDiv.querySelector('#fe').value=ep.expenses;
       formDiv.querySelector('#fcat').value=ep.folderId||'';
       var fn2=formDiv.querySelector('#fnotes');if(fn2)fn2.value=ep.notes||'';
-      var fi2=formDiv.querySelector('#fimage');if(fi2)fi2.value=ep.image||'';
+      currentImageData=ep.image||'';
+      var fi2=formDiv.querySelector('#fimage-url');if(fi2)fi2.value=ep.image||'';
       formDiv.querySelector('#badd').textContent='💾 Сохранить';
       formDiv.querySelector('#badd').className='btn btn-warn';
       formDiv.querySelector('#bcan').style.display='';
@@ -814,6 +882,7 @@ function renderProducts(){
   }
 
   renderTable(list,t);
+  initProductImageInput();
   main.appendChild(document.createElement('div')).className='footnote';
   main.lastChild.textContent='💾 Данные сохраняются автоматически · Нажмите на заголовок колонки для сортировки';
 }
@@ -946,6 +1015,8 @@ function renderAnalytics(){
   var allT=calcFor(products);
   var purchaseInRange=purchases.filter(function(pu){return saleInSelectedRange({date:pu.date});});
   var purchaseExpenses=purchaseInRange.reduce(function(sum,pu){return sum+(pu.qty*pu.price);},0);
+  var expensesInRange=getHistoryExpenses(analyticsPeriod==='all').filter(function(ex){return ex.date&&saleInSelectedRange({date:ex.date});});
+  var periodExpenses=expensesInRange.reduce(function(sum,ex){return sum+(Number(ex.amount)||0);},0);
   var potentialProfit=products.reduce(function(sum,p){return sum+((p.retail-p.wholesale)*(p.stock||0));},0);
   var actualProfit=salesRev?0:0;
   filteredSales.forEach(function(s){actualProfit+=typeof s.profitAtSale==='number'?s.profitAtSale:getActualProfitForSale(s,productById(s.productId));});
@@ -984,9 +1055,10 @@ function renderAnalytics(){
   var finance=document.createElement('div');finance.className='sg anim';
   finance.innerHTML=
     '<div class="sc purple"><div class="sc-icon">🧾</div><div class="sc-label">Закупки периода</div><div class="sc-val">₽'+fmt(purchaseExpenses)+'</div><div class="sc-sub">'+purchaseInRange.length+' операций</div></div>'+
+    '<div class="sc ruby"><div class="sc-icon">💸</div><div class="sc-label">Расходы</div><div class="sc-val">₽'+fmt(periodExpenses)+'</div><div class="sc-sub">Из истории расходов</div></div>'+
     '<div class="sc blue"><div class="sc-icon">🎯</div><div class="sc-label">Потенц. прибыль</div><div class="sc-val">₽'+fmt(potentialProfit)+'</div><div class="sc-sub">По текущему остатку</div></div>'+
     '<div class="sc yellow"><div class="sc-icon">🧮</div><div class="sc-label">Средний чек</div><div class="sc-val">₽'+fmt(avgCheck)+'</div><div class="sc-sub">За выбранный период</div></div>'+
-    '<div class="sc '+((salesRev-purchaseExpenses)>=0?'green':'red')+'"><div class="sc-icon">🏦</div><div class="sc-label">Net результат</div><div class="sc-val">'+((salesRev-purchaseExpenses)>=0?'+':'−')+'₽'+fmt(Math.abs(salesRev-purchaseExpenses))+'</div><div class="sc-sub">Выручка − закупки</div></div>';
+    '<div class="sc '+((salesRev-purchaseExpenses-periodExpenses)>=0?'green':'red')+'"><div class="sc-icon">🏦</div><div class="sc-label">Net результат</div><div class="sc-val">'+((salesRev-purchaseExpenses-periodExpenses)>=0?'+':'−')+'₽'+fmt(Math.abs(salesRev-purchaseExpenses-periodExpenses))+'</div><div class="sc-sub">Выручка − закупки − расходы</div></div>';
   main.appendChild(finance);
   var custMap={},supMap={};
   sales.forEach(function(s){if(!s.customer)return;custMap[s.customer]=(custMap[s.customer]||0)+1;});
@@ -1173,7 +1245,7 @@ function buildDonut(parts){
 function renderHistory(){
   var isSales=historyTab==='sales',isPurchases=historyTab==='purchases',isExpenses=historyTab==='expenses';
   $('page-title').textContent='История';
-  var historyExpenseCount=expenseOps.length+products.filter(function(p){return (Number(p.expenses)||0)>0;}).length;
+  var historyExpenseCount=getHistoryExpenses(true).length;
   $('page-sub').textContent=(isSales?'Продажи: '+sales.length+' записей':(isPurchases?'Поставки: '+purchases.length+' записей':'Расходы: '+historyExpenseCount+' записей'));
   var main=$('main');
   var today=new Date().toISOString().slice(0,10);
@@ -1271,16 +1343,17 @@ function renderHistory(){
   } else if(isPurchases) {
     formDiv.innerHTML=
       '<div class="form-head"><div class="fh-dot" style="background:var(--blue);box-shadow:0 0 6px var(--blue)"></div><div class="fh-title">Записать поставку</div><div class="fh-sub">Увеличивает остаток и кол-во товара</div></div>'+
-      '<div class="hist-body">'+
-        '<div class="fg"><label class="fl">Товар</label><select id="hp-prod">'+prodOptions+'</select></div>'+
-        '<div class="fg"><label class="fl">Кол-во</label><input type="number" id="hp-qty" min="1" step="1" placeholder="1"></div>'+
-        '<div class="fg"><label class="fl">Цена закупки (₽)</label><input type="number" id="hp-price" min="0" step="0.01" placeholder="Авто"></div>'+
+      '<div id="supply-rows"></div>'+
+      '<div class="hist-body" style="grid-template-columns:auto auto 1fr 1fr auto">'+
+        '<button class="btn btn-ghost" onclick="addSupplyRow()">＋ Добавить строку</button>'+
         '<div class="fg"><label class="fl">Дата</label><input type="date" id="hp-date" value="'+today+'"></div>'+
+        '<div class="fg"><label class="fl">Поставщик (необязательно)</label><input type="text" id="hp-supplier" placeholder="Название поставщика"></div>'+
+        '<div class="fg"><label class="fl">Комментарий документа</label><input type="text" id="hp-note" placeholder="Условия, номер счета..."></div>'+
         '<div class="fbtns" style="padding-top:22px"><button class="btn btn-blue" onclick="addPurchase()">＋ Поставка</button></div>'+
       '</div>'+
       '<div class="hist-body" style="padding-top:0;grid-template-columns:1fr 1fr">'+
-        '<div class="fg"><label class="fl">Поставщик (необязательно)</label><input type="text" id="hp-supplier" placeholder="Название поставщика"></div>'+
-        '<div class="fg"><label class="fl">Комментарий</label><input type="text" id="hp-note" placeholder="Условия, номер счета..."></div>'+
+        '<div class="fg"><label class="fl">Итог по документу</label><div id="supply-summary" style="padding:11px 12px;border:1px solid var(--border);border-radius:10px;font-size:12px;color:var(--text3)">0 позиций · ₽0</div></div>'+
+        '<div class="fg"><label class="fl">Логика</label><div style="padding:11px 12px;border:1px solid var(--border);border-radius:10px;font-size:12px;color:var(--text3)">Каждая строка поставки сохраняется отдельной записью истории.</div></div>'+
       '</div>';
   } else {
     formDiv.innerHTML=
@@ -1297,6 +1370,7 @@ function renderHistory(){
       '</div>';
   }
   main.appendChild(formDiv);
+  if(isPurchases){addSupplyRow();updateSupplySummary();}
   if(isSales && quickSellProdId!==null){
     var qsel=$('hs-prod');
     if(qsel){qsel.value=quickSellProdId;updateSalePreview();}
@@ -1347,8 +1421,7 @@ function renderHistory(){
     });
     listDiv.innerHTML=htmlP;
   } else {
-    var legacy=products.filter(function(p){return (Number(p.expenses)||0)>0;}).map(function(p){return{id:'legacy-'+p.id,productId:p.id,amount:Number(p.expenses)||0,date:'',note:'',category:'Базовый расход из карточки товара',legacy:true};});
-    var sortedE=expenseOps.concat(legacy).filter(function(ex){return matchCommon(ex,ex.productId);}).sort(function(a,b){return applyHistorySort(a,b,'expenses');});
+    var sortedE=getHistoryExpenses(true).filter(function(ex){return matchCommon(ex,ex.productId);}).sort(function(a,b){return applyHistorySort(a,b,'expenses');});
     if(sortedE.length===0){listDiv.innerHTML='<div class="empty"><div class="empty-icon">🧾</div><div class="empty-text">Расходов нет — добавьте первую запись</div></div>';main.appendChild(listDiv);return;}
     var htmlE='<div class="hist-thead" style="grid-template-columns:100px 1.5fr 1.2fr 1fr 2fr 36px"><div>Дата</div><div>Товар</div><div>Категория</div><div>Сумма</div><div>Комментарий</div><div></div></div>';
     sortedE.forEach(function(ex){
@@ -1391,6 +1464,41 @@ function applyHistorySort(a,b,type){
   if(mode==='profit_desc' && type==='sales')return (b.profitAtSale||0)-(a.profitAtSale||0);
   if(mode==='profit_asc' && type==='sales')return (a.profitAtSale||0)-(b.profitAtSale||0);
   return (b.id||0)-(a.id||0);
+}
+function addSupplyRow(){
+  var host=$('supply-rows');if(!host)return;
+  var prodOptions='<option value=\"\">— Выберите товар —</option>';
+  products.forEach(function(p){prodOptions+='<option value=\"'+p.id+'\">'+esc(p.name)+'</option>';});
+  var row=document.createElement('div');
+  row.className='hist-body supply-row';
+  row.style.gridTemplateColumns='2fr 1fr 1fr 1.2fr auto';
+  row.innerHTML='<div class="fg"><label class="fl">Товар</label><select class="hp-prod">'+prodOptions+'</select></div>'+
+    '<div class="fg"><label class="fl">Кол-во</label><input class="hp-qty" type="number" min="1" step="1" placeholder="1"></div>'+
+    '<div class="fg"><label class="fl">Цена закупки (₽)</label><input class="hp-price" type="number" min="0" step="0.01" placeholder="Авто"></div>'+
+    '<div class="fg"><label class="fl">Комментарий строки</label><input class="hp-note" type="text" placeholder="Серия / партия"></div>'+
+    '<div class="fbtns" style="padding-top:22px"><button class="btn btn-danger" onclick="removeSupplyRow(this)">✕</button></div>';
+  host.appendChild(row);
+  [].slice.call(row.querySelectorAll('input,select')).forEach(function(el){el.addEventListener('input',updateSupplySummary);el.addEventListener('change',updateSupplySummary);});
+}
+function removeSupplyRow(btn){
+  var rows=document.querySelectorAll('.supply-row');
+  if(rows.length<=1)return;
+  var row=btn.closest('.supply-row');if(row)row.remove();
+  updateSupplySummary();
+}
+function updateSupplySummary(){
+  var rows=[].slice.call(document.querySelectorAll('.supply-row'));
+  var cnt=0,sum=0;
+  rows.forEach(function(row){
+    var prodId=parseInt(row.querySelector('.hp-prod').value,10);
+    var qty=parseInt(row.querySelector('.hp-qty').value,10);
+    var p=productById(prodId);
+    var priceVal=parseFloat(row.querySelector('.hp-price').value);
+    if(!p||isNaN(qty)||qty<1)return;
+    var price=isNaN(priceVal)?(p.wholesale||0):priceVal;
+    cnt++;sum+=qty*price;
+  });
+  var s=$('supply-summary');if(s)s.textContent=cnt+' позиций · ₽'+fmtD(sum);
 }
 
 function setDiscountType(type){
@@ -1455,32 +1563,35 @@ function addSale(){
   var note=$('hs-note')?$('hs-note').value.trim():'';
   var customer=$('hs-customer')?$('hs-customer').value.trim():'';
   var snapshot=computeSaleSnapshot(p,qty,basePrice,finalPrice,disc);
-  sales.push({id:nextSaleId++,productId:prodId,qty:qty,price:finalPrice,discount:disc,date:date,note:note,customer:customer,costAtSale:snapshot.costAtSale,retailAtSale:snapshot.retailAtSale,discountAtSale:snapshot.discountAtSale,profitAtSale:snapshot.profitAtSale});
+  var lineId=nextSaleLineId++;
+  saleDocs.push({id:nextSaleDocId++,date:date,customer:customer,note:note,items:[{id:lineId,productId:prodId,qty:qty,price:finalPrice,discount:disc,note:note,costAtSale:snapshot.costAtSale,retailAtSale:snapshot.retailAtSale,discountAtSale:snapshot.discountAtSale,profitAtSale:snapshot.profitAtSale}]});
   p.stock=Math.max(0,(p.stock||0)-qty);
+  nextSaleId=Math.max(nextSaleId,lineId+1);
   persist();render();
 }
 
 function addPurchase(){
-  var prodId=parseInt($('hp-prod').value);
-  var qty=parseInt($('hp-qty').value);
-  var p=productById(prodId);
-  if(!p||isNaN(qty)||qty<1){
-    if(!p){var s=$('hp-prod');s.style.borderColor='var(--red)';setTimeout(function(){s.style.borderColor='';},1200);}
-    if(isNaN(qty)){var q=$('hp-qty');q.style.borderColor='var(--red)';setTimeout(function(){q.style.borderColor='';},1200);}
-    return;
-  }
-  var priceVal=parseFloat($('hp-price').value);
-  if(!isNaN(priceVal)&&priceVal<0){alert('Цена закупки не может быть отрицательной.');return;}
-  var price=isNaN(priceVal)?p.wholesale:priceVal;
+  var rows=[].slice.call(document.querySelectorAll('.supply-row'));
+  if(!rows.length){alert('Добавьте хотя бы одну позицию поставки.');return;}
   var date=$('hp-date')?$('hp-date').value:new Date().toISOString().slice(0,10);
   var note=$('hp-note')?$('hp-note').value.trim():'';
   var supplier=$('hp-supplier')?$('hp-supplier').value.trim():'';
-  purchases.push({id:nextPurchaseId++,productId:prodId,qty:qty,price:price,date:date,note:note,supplier:supplier});
-  // Увеличиваем склад и общее кол-во
-  p.stock=(p.stock||0)+qty;
-  p.qty=(p.qty||0)+qty;
-  // Обновляем оптовую цену если указана
-  if(!isNaN(priceVal)) p.wholesale=price;
+  var items=[];
+  for(var i=0;i<rows.length;i++){
+    var row=rows[i];
+    var prodId=parseInt(row.querySelector('.hp-prod').value,10);
+    var qty=parseInt(row.querySelector('.hp-qty').value,10);
+    var p=productById(prodId);
+    if(!p||isNaN(qty)||qty<1){alert('Проверьте товар и количество в строке '+(i+1)+'.');return;}
+    var priceVal=parseFloat(row.querySelector('.hp-price').value);
+    if(!isNaN(priceVal)&&priceVal<0){alert('Цена закупки не может быть отрицательной.');return;}
+    var price=isNaN(priceVal)?p.wholesale:priceVal;
+    var lineNote=(row.querySelector('.hp-note')?row.querySelector('.hp-note').value.trim():'');
+    items.push({id:nextSupplyLineId++,productId:prodId,qty:qty,price:price,note:lineNote});
+    p.stock=(p.stock||0)+qty;p.qty=(p.qty||0)+qty;if(!isNaN(priceVal))p.wholesale=price;
+    nextPurchaseId=Math.max(nextPurchaseId,nextSupplyLineId);
+  }
+  supplyDocs.push({id:nextSupplyDocId++,date:date,supplier:supplier,note:note,items:items});
   persist();render();
 }
 
@@ -1493,10 +1604,6 @@ function addExpenseOp(){
   var note=$('he-note')?$('he-note').value.trim():'';
   var category=$('he-category')?$('he-category').value.trim():'';
   expenseOps.push({id:nextExpenseId++,productId:isNaN(prodId)?null:prodId,amount:amount,date:date,note:note,category:category});
-  if(!isNaN(prodId)){
-    var p=productById(prodId);
-    if(p)p.expenses=(Number(p.expenses)||0)+amount;
-  }
   persist();render();
 }
 
@@ -1505,9 +1612,10 @@ function delSale(id){
   if(!s)return;
   var p=productById(s.productId);
   if(p)p.stock=(p.stock||0)+s.qty;
-  sales=sales.filter(function(x){return x.id!==id;});
+  saleDocs.forEach(function(doc){doc.items=(doc.items||[]).filter(function(it){return it.id!==id;});});
+  saleDocs=saleDocs.filter(function(doc){return doc.items&&doc.items.length;});
   showUndo('Продажа удалена',function(){
-    sales.push(s);
+    saleDocs.push({id:nextSaleDocId++,date:s.date,customer:s.customer||'',note:s.note||'',items:[{id:s.id,productId:s.productId,qty:s.qty,price:s.price,discount:s.discount||0,note:s.note||'',costAtSale:s.costAtSale,retailAtSale:s.retailAtSale,discountAtSale:s.discountAtSale,profitAtSale:s.profitAtSale}]});
     var pp=productById(s.productId);if(pp)pp.stock=Math.max(0,(pp.stock||0)-s.qty);
   });
   persist();render();
@@ -1521,9 +1629,10 @@ function delPurchase(id){
     p.stock=Math.max(0,(p.stock||0)-pu.qty);
     p.qty=Math.max(0,(p.qty||0)-pu.qty);
   }
-  purchases=purchases.filter(function(x){return x.id!==id;});
+  supplyDocs.forEach(function(doc){doc.items=(doc.items||[]).filter(function(it){return it.id!==id;});});
+  supplyDocs=supplyDocs.filter(function(doc){return doc.items&&doc.items.length;});
   showUndo('Поставка удалена',function(){
-    purchases.push(pu);
+    supplyDocs.push({id:nextSupplyDocId++,date:pu.date,supplier:pu.supplier||'',note:pu.note||'',items:[{id:pu.id,productId:pu.productId,qty:pu.qty,price:pu.price,note:pu.note||''}]});
     var pp=productById(pu.productId);if(pp){pp.stock=(pp.stock||0)+pu.qty;pp.qty=(pp.qty||0)+pu.qty;}
   });
   persist();render();
@@ -2053,10 +2162,32 @@ setInterval(liveUpdate, 2000);
 // ══════════════════════════════════════════════════════
 // PRODUCT FORM ACTIONS
 // ══════════════════════════════════════════════════════
+function renderProductImagePreview(src){
+  var pr=$('fimage-preview');if(!pr)return;
+  if(!src){pr.innerHTML='';return;}
+  pr.innerHTML='<img src="'+esc(src)+'" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">';
+}
+function initProductImageInput(){
+  var fi=$('fimage-file'),url=$('fimage-url'),err=$('fimage-error');
+  if(err)err.textContent=currentImageError||'';
+  renderProductImagePreview(currentImageData||(url?url.value.trim():''));
+  if(url)url.addEventListener('input',function(){if(!currentImageData)renderProductImagePreview(url.value.trim());});
+  if(!fi)return;
+  fi.addEventListener('change',function(){
+    var file=fi.files&&fi.files[0];
+    if(!file)return;
+    if(!/^image\/(png|jpeg)$/.test(file.type)){currentImageError='Допустимы только PNG/JPG/JPEG';if(err)err.textContent=currentImageError;fi.value='';return;}
+    if(file.size>3*1024*1024){currentImageError='Файл слишком большой (до 3MB).';if(err)err.textContent=currentImageError;fi.value='';return;}
+    var reader=new FileReader();
+    reader.onload=function(e){currentImageData=String(e.target.result||'');currentImageError='';if(err)err.textContent='';renderProductImagePreview(currentImageData);if(url)url.value='';};
+    reader.onerror=function(){currentImageError='Не удалось прочитать файл.';if(err)err.textContent=currentImageError;};
+    reader.readAsDataURL(file);
+  });
+}
 function doAdd(){
-  var fn=$('fn'),fa=$('farticle'),fw=$('fw'),fr=$('fr'),fq=$('fq'),fe=$('fe'),fc=$('fcat'),fnotes=$('fnotes'),fimage=$('fimage');
+  var fn=$('fn'),fa=$('farticle'),fw=$('fw'),fr=$('fr'),fq=$('fq'),fe=$('fe'),fc=$('fcat'),fnotes=$('fnotes'),fimageUrl=$('fimage-url');
   if(!fn||!fw||!fr||!fq)return;
-  var name=fn.value.trim(),article=fa?fa.value.trim():'',img=fimage?fimage.value.trim():'',w=parseFloat(fw.value),r=parseFloat(fr.value),q=parseInt(fq.value),e=parseFloat(fe.value)||0,fid=fc&&fc.value?parseInt(fc.value):null,notes=fnotes?fnotes.value.trim():'';
+  var name=fn.value.trim(),article=fa?fa.value.trim():'',img=currentImageData||(fimageUrl?fimageUrl.value.trim():''),w=parseFloat(fw.value),r=parseFloat(fr.value),q=parseInt(fq.value),e=parseFloat(fe.value)||0,fid=fc&&fc.value?parseInt(fc.value):null,notes=fnotes?fnotes.value.trim():'';
   if(!name||isNaN(w)||isNaN(r)||isNaN(q)||q<1||w<0||r<0||e<0){
     var shake=function(el){if(!el)return;el.style.borderColor='var(--red)';el.style.boxShadow='0 0 0 3px rgba(255,61,107,0.1)';setTimeout(function(){el.style.borderColor='';el.style.boxShadow='';},1200);};
     if(!name)shake(fn);if(isNaN(w))shake(fw);if(isNaN(r))shake(fr);if(isNaN(q))shake(fq);
@@ -2075,6 +2206,7 @@ function doAdd(){
   }else{
     products.push({id:nextId++,name:name,article:article,image:img,wholesale:w,retail:r,qty:q,expenses:e,folderId:fid,stock:q,minStock:5,minStockEnabled:true,notes:notes});
   }
+  currentImageData='';currentImageError='';
   persist();render();
 }
 
@@ -2089,15 +2221,19 @@ function doDel(id){
   var removed=productById(id);
   var removedSales=sales.filter(function(s){return s.productId===id;});
   var removedPurchases=purchases.filter(function(pu){return pu.productId===id;});
+  var removedSaleDocs=saleDocs.filter(function(doc){return(doc.items||[]).some(function(it){return it.productId===id;});});
+  var removedSupplyDocs=supplyDocs.filter(function(doc){return(doc.items||[]).some(function(it){return it.productId===id;});});
   products=products.filter(function(p){return p.id!==id;});
-  sales=sales.filter(function(s){return s.productId!==id;});
-  purchases=purchases.filter(function(pu){return pu.productId!==id;});
+  saleDocs=saleDocs.map(function(doc){doc.items=(doc.items||[]).filter(function(it){return it.productId!==id;});return doc;}).filter(function(doc){return doc.items.length;});
+  supplyDocs=supplyDocs.map(function(doc){doc.items=(doc.items||[]).filter(function(it){return it.productId!==id;});return doc;}).filter(function(doc){return doc.items.length;});
   if(editId===id)editId=null;
   if(removed){
     showUndo('Товар удален: '+removed.name,function(){
       products.push(removed);
-      removedSales.forEach(function(s){sales.push(s);});
-      removedPurchases.forEach(function(pu){purchases.push(pu);});
+      removedSaleDocs.forEach(function(d){saleDocs.push(d);});
+      removedSupplyDocs.forEach(function(d){supplyDocs.push(d);});
+      removedSales.forEach(function(s){nextSaleLineId=Math.max(nextSaleLineId,(s.id||0)+1);});
+      removedPurchases.forEach(function(pu){nextSupplyLineId=Math.max(nextSupplyLineId,(pu.id||0)+1);});
     });
   }
   persist();render();
@@ -2383,7 +2519,8 @@ function closeDocumentation(evt){
   $('docs-modal').classList.remove('show');
 }
 function doExport(){
-  var data={products:products,folders:folders,sales:sales,purchases:purchases,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextCustomNoteId:nextCustomNoteId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange};
+  rebuildFlatOpsFromDocs();
+  var data={products:products,folders:folders,sales:sales,purchases:purchases,saleDocs:saleDocs,supplyDocs:supplyDocs,expenseOps:expenseOps,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextExpenseId:nextExpenseId,nextCustomNoteId:nextCustomNoteId,nextSaleDocId:nextSaleDocId,nextSupplyDocId:nextSupplyDocId,nextSaleLineId:nextSaleLineId,nextSupplyLineId:nextSupplyLineId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange};
   var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   var url=URL.createObjectURL(blob);
   var a=document.createElement('a');a.href=url;a.download='profit_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url);
@@ -2502,8 +2639,8 @@ $('imp').addEventListener('change',function(e){
   reader.onload=function(ev){
     try{
       var d=JSON.parse(ev.target.result);
-      if(Array.isArray(d)){products=d;folders=[];sales=[];purchases=[];customNotes=[];nextId=d.length+1;nextFolderId=1;nextSaleId=1;nextPurchaseId=1;nextCustomNoteId=1;}
-      else{products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];customNotes=d.customNotes||[];nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;nextCustomNoteId=d.nextCustomNoteId||customNotes.length+1;}
+      if(Array.isArray(d)){products=d;folders=[];sales=[];purchases=[];saleDocs=[];supplyDocs=[];expenseOps=[];customNotes=[];nextId=d.length+1;nextFolderId=1;nextSaleId=1;nextPurchaseId=1;nextExpenseId=1;nextCustomNoteId=1;}
+      else{products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];saleDocs=d.saleDocs||[];supplyDocs=d.supplyDocs||[];expenseOps=d.expenseOps||[];customNotes=d.customNotes||[];nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;nextExpenseId=d.nextExpenseId||expenseOps.length+1;nextCustomNoteId=d.nextCustomNoteId||customNotes.length+1;nextSaleDocId=d.nextSaleDocId||saleDocs.length+1;nextSupplyDocId=d.nextSupplyDocId||supplyDocs.length+1;nextSaleLineId=d.nextSaleLineId||nextSaleId;nextSupplyLineId=d.nextSupplyLineId||nextPurchaseId;}
       migrateData();
       editId=null;selectedFolder=null;persist();render();
     }catch(err){alert('Ошибка: '+err.message);}
@@ -2555,7 +2692,8 @@ var AUTO_BACKUP_INTERVAL=2*60*60*1000; // 2 hours
 var LAST_AUTO_KEY='ptv5_last_auto_backup';
 
 function getBackupData(){
-  return JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextCustomNoteId:nextCustomNoteId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange});
+  rebuildFlatOpsFromDocs();
+  return JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,saleDocs:saleDocs,supplyDocs:supplyDocs,expenseOps:expenseOps,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextExpenseId:nextExpenseId,nextCustomNoteId:nextCustomNoteId,nextSaleDocId:nextSaleDocId,nextSupplyDocId:nextSupplyDocId,nextSaleLineId:nextSaleLineId,nextSupplyLineId:nextSupplyLineId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange});
 }
 
 function loadBackups(){
@@ -2607,9 +2745,9 @@ function restoreBackup(ts){
   if(!confirm('Восстановить копию от '+entry.label+'?\n\nТекущие данные будут перезаписаны.'))return;
   try{
     var d=JSON.parse(entry.data);
-    products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];customNotes=d.customNotes||[];
+    products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];saleDocs=d.saleDocs||[];supplyDocs=d.supplyDocs||[];expenseOps=d.expenseOps||[];customNotes=d.customNotes||[];
     nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;
-    nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;nextCustomNoteId=d.nextCustomNoteId||customNotes.length+1;
+    nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;nextExpenseId=d.nextExpenseId||expenseOps.length+1;nextCustomNoteId=d.nextCustomNoteId||customNotes.length+1;nextSaleDocId=d.nextSaleDocId||saleDocs.length+1;nextSupplyDocId=d.nextSupplyDocId||supplyDocs.length+1;nextSaleLineId=d.nextSaleLineId||nextSaleId;nextSupplyLineId=d.nextSupplyLineId||nextPurchaseId;
     if(d.theme)currentTheme=d.theme;if(d.discountType)discountType=d.discountType;if(d.analyticsRange)analyticsRange=d.analyticsRange;
     migrateData();
     persist();applyTheme();render();
