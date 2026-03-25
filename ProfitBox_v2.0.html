@@ -456,12 +456,12 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 // ══════════════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════════════
-var products=[], folders=[], sales=[], purchases=[], customNotes=[];
+var products=[], folders=[], sales=[], purchases=[], expenseOps=[], customNotes=[];
 var editId=null, editFolderId=null;
-var nextId=1, nextFolderId=1, nextSaleId=1, nextPurchaseId=1, nextCustomNoteId=1;
+var nextId=1, nextFolderId=1, nextSaleId=1, nextPurchaseId=1, nextExpenseId=1, nextCustomNoteId=1;
 var selectedFolder=null;
 var currentTab='products';
-var historyTab='sales'; // 'sales' | 'purchases'
+var historyTab='sales'; // 'sales' | 'purchases' | 'expenses'
 var searchQuery='';
 var sortCol='', sortDir='asc';
 var selectedColor='#00ffb3';
@@ -562,6 +562,14 @@ function migrateData(){
     if(pu.note===undefined)pu.note='';
     if(pu.supplier===undefined)pu.supplier='';
   });
+  expenseOps.forEach(function(ex){
+    ex.date=normalizeDate(ex.date);
+    ex.amount=clampNum(parseFloat(ex.amount),0);
+    if(ex.note===undefined)ex.note='';
+    if(ex.category===undefined)ex.category='';
+    if(ex.productId!==null&&ex.productId!==undefined)ex.productId=parseInt(ex.productId);
+    if(isNaN(ex.productId))ex.productId=null;
+  });
   customNotes.forEach(function(n){
     n.date=normalizeDate(n.date);
     if(n.title===undefined)n.title='';
@@ -606,7 +614,7 @@ var filteredProducts=function(){
 // STORAGE
 // ══════════════════════════════════════════════════════
 function persist(){
-  try{localStorage.setItem('ptv5',JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextCustomNoteId:nextCustomNoteId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange}));}catch(e){}
+  try{localStorage.setItem('ptv5',JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,expenseOps:expenseOps,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextExpenseId:nextExpenseId,nextCustomNoteId:nextCustomNoteId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange}));}catch(e){}
   var f=$('flash');if(f){f.classList.add('on');setTimeout(function(){f.classList.remove('on');},1500);}
   liveUpdate();
 }
@@ -617,12 +625,12 @@ function loadData(){
   try{
     if(raw){
       var d=JSON.parse(raw);
-      if(Array.isArray(d)){products=d;folders=[];sales=[];purchases=[];customNotes=[];}
-      else{products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];customNotes=d.customNotes||[];nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;nextCustomNoteId=d.nextCustomNoteId||customNotes.length+1;if(d.theme)currentTheme=d.theme;if(d.discountType)discountType=d.discountType;if(d.analyticsRange)analyticsRange=d.analyticsRange;}
+      if(Array.isArray(d)){products=d;folders=[];sales=[];purchases=[];expenseOps=[];customNotes=[];}
+      else{products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];expenseOps=d.expenseOps||[];customNotes=d.customNotes||[];nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;nextExpenseId=d.nextExpenseId||expenseOps.length+1;nextCustomNoteId=d.nextCustomNoteId||customNotes.length+1;if(d.theme)currentTheme=d.theme;if(d.discountType)discountType=d.discountType;if(d.analyticsRange)analyticsRange=d.analyticsRange;}
     }
   }catch(e){}
   migrateData();
-  try{localStorage.setItem('ptv5',JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextCustomNoteId:nextCustomNoteId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange}));}catch(e){}
+  try{localStorage.setItem('ptv5',JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,expenseOps:expenseOps,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextExpenseId:nextExpenseId,nextCustomNoteId:nextCustomNoteId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange}));}catch(e){}
 }
 
 // ══════════════════════════════════════════════════════
@@ -650,7 +658,7 @@ function renderSidebar(){
   var all=calcFor(products);
   $('cnt-all').textContent=products.length;
   $('cnt-folder-all').textContent=products.length;
-  $('cnt-hist').textContent=sales.length+purchases.length;
+  $('cnt-hist').textContent=sales.length+purchases.length+expenseOps.length;
   $('cnt-notes').textContent=countNotesByDay().totalNotes;
   $('sb-rev').textContent='₽'+fmt(all.rev);
   $('sb-exp').textContent='₽'+fmt(all.exp);
@@ -1163,41 +1171,43 @@ function buildDonut(parts){
 // HISTORY TAB
 // ══════════════════════════════════════════════════════
 function renderHistory(){
-  var isSales=historyTab==='sales';
+  var isSales=historyTab==='sales',isPurchases=historyTab==='purchases',isExpenses=historyTab==='expenses';
   $('page-title').textContent='История';
-  $('page-sub').textContent=(isSales?'Продажи: '+sales.length+' записей':'Поставки: '+purchases.length+' записей');
+  var historyExpenseCount=expenseOps.length+products.filter(function(p){return (Number(p.expenses)||0)>0;}).length;
+  $('page-sub').textContent=(isSales?'Продажи: '+sales.length+' записей':(isPurchases?'Поставки: '+purchases.length+' записей':'Расходы: '+historyExpenseCount+' записей'));
   var main=$('main');
   var today=new Date().toISOString().slice(0,10);
 
   if(!localStorage.getItem('hide-tip-history')){
     var tip=document.createElement('div');tip.className='info-banner anim';
-    tip.innerHTML='<div class="info-banner-icon">🕓</div><div class="info-banner-body"><div class="info-banner-title">Вкладка «История»</div><div class="info-banner-text"><b>Продажа</b> — уменьшает остаток на складе, учитывается в аналитике по периодам. Цена по умолчанию = розничная.<br><b>Скидка</b> — переключай между <b>₽</b> (фиксированная сумма) и <b>%</b> (процент от цены). По умолчанию стоит ₽.<br><b>Поставка</b> — увеличивает остаток и кол-во товара, обновляет оптовую цену. Удаление записи откатывает изменения.</div></div><button class="info-banner-close" onclick="localStorage.setItem(\'hide-tip-history\',1);this.closest(\'.info-banner\').remove()">✕</button>';
+    tip.innerHTML='<div class="info-banner-icon">🕓</div><div class="info-banner-body"><div class="info-banner-title">Вкладка «История»</div><div class="info-banner-text"><b>Продажа</b> — уменьшает остаток на складе, учитывается в аналитике по периодам. Цена по умолчанию = розничная.<br><b>Скидка</b> — переключай между <b>₽</b> (фиксированная сумма) и <b>%</b> (процент от цены). По умолчанию стоит ₽.<br><b>Поставка</b> — увеличивает остаток и кол-во товара, обновляет оптовую цену. Удаление записи откатывает изменения.<br><b>Расход</b> — теперь отдельная категория истории, которую можно фильтровать и сортировать.</div></div><button class="info-banner-close" onclick="localStorage.setItem(\'hide-tip-history\',1);this.closest(\'.info-banner\').remove()">✕</button>';
     main.appendChild(tip);
   }
 
-  // SWITCHER
   var sw=document.createElement('div');sw.className='anim';sw.style.cssText='display:flex;align-items:center;gap:14px;flex-wrap:wrap';
   sw.innerHTML=
     '<div class="hist-switcher">'+
       '<button class="hist-sw-btn'+(isSales?' active':'')+'" onclick="switchHistTab(\'sales\')">📤 Продажи <span class="ct">'+sales.length+'</span></button>'+
-      '<button class="hist-sw-btn'+(!isSales?' active':'')+'" onclick="switchHistTab(\'purchases\')">📥 Поставки <span class="ct">'+purchases.length+'</span></button>'+
+      '<button class="hist-sw-btn'+(isPurchases?' active':'')+'" onclick="switchHistTab(\'purchases\')">📥 Поставки <span class="ct">'+purchases.length+'</span></button>'+
+      '<button class="hist-sw-btn'+(isExpenses?' active':'')+'" onclick="switchHistTab(\'expenses\')">🧾 Расходы <span class="ct">'+historyExpenseCount+'</span></button>'+
     '</div>';
   main.appendChild(sw);
+
   var filterBar=document.createElement('div');filterBar.className='toolbar anim';
   var prodOpts='<option value="">Все товары</option>';
   products.forEach(function(p){prodOpts+='<option value="'+p.id+'"'+(String(historyFilters.productId)===String(p.id)?' selected':'')+'>'+esc(p.name)+'</option>';});
   var folderOpts='<option value="">Все папки</option>';
   folders.forEach(function(f){folderOpts+='<option value="'+f.id+'"'+(String(historyFilters.folderId)===String(f.id)?' selected':'')+'>'+esc(f.name)+'</option>';});
   filterBar.innerHTML=
-    '<select id="hf-type"><option value="all">Все операции</option><option value="sales">Продажи</option><option value="purchases">Поставки</option></select>'+
+    '<select id="hf-type"><option value="all">Все операции</option><option value="sales">Продажи</option><option value="purchases">Поставки</option><option value="expenses">Расходы</option></select>'+
     '<select id="hf-product">'+prodOpts+'</select>'+
     '<select id="hf-folder">'+folderOpts+'</select>'+
     '<input type="date" id="hf-from" value="'+(historyFilters.from||'')+'" title="С даты">'+
     '<input type="date" id="hf-to" value="'+(historyFilters.to||'')+'" title="По дату">'+
-    '<select id="hf-sort"><option value="date_desc">Дата ↓</option><option value="date_asc">Дата ↑</option><option value="amount_desc">Сумма ↓</option><option value="qty_desc">Кол-во ↓</option><option value="profit_desc">Прибыль ↓</option></select>'+
+    '<select id="hf-sort"><option value="date_desc">Дата (новые сверху)</option><option value="date_asc">Дата (старые сверху)</option><option value="amount_desc">Сумма (больше сначала)</option><option value="amount_asc">Сумма (меньше сначала)</option><option value="qty_desc">Кол-во (больше сначала)</option><option value="qty_asc">Кол-во (меньше сначала)</option><option value="profit_desc">Прибыль (больше сначала)</option><option value="profit_asc">Прибыль (меньше сначала)</option></select>'+
     '<button class="btn btn-ghost" onclick="resetHistoryFilters()">Сброс</button>';
   main.appendChild(filterBar);
-  $('hf-type').value=historyFilters.type||'all';
+  $('hf-type').value=(historyFilters.type&&historyFilters.type!=='all')?historyFilters.type:historyTab;
   $('hf-sort').value=historyFilters.sort||'date_desc';
   ['hf-type','hf-product','hf-folder','hf-from','hf-to','hf-sort'].forEach(function(id){
     var el=$(id);if(!el)return;
@@ -1210,23 +1220,25 @@ function renderHistory(){
       historyFilters.sort=$('hf-sort').value;
       if(historyFilters.type==='sales'&&historyTab!=='sales')historyTab='sales';
       if(historyFilters.type==='purchases'&&historyTab!=='purchases')historyTab='purchases';
+      if(historyFilters.type==='expenses'&&historyTab!=='expenses')historyTab='expenses';
       render();
     });
   });
 
-  // FORM
   var formDiv=document.createElement('div');formDiv.className='hist-form anim';
   var prodOptions='<option value="">— Выберите товар —</option>';
   products.forEach(function(p){prodOptions+='<option value="'+p.id+'">'+esc(p.name)+'</option>';});
 
   var fromD=parseISO(historyFilters.from),toD=parseISO(historyFilters.to);
   function matchCommon(item,prodId){
-    if(historyFilters.productId && String(prodId)!==String(historyFilters.productId))return false;
+    if(historyFilters.productId && String(prodId||'')!==String(historyFilters.productId))return false;
     var p=productById(prodId);
     if(historyFilters.folderId && (!p || String(p.folderId||'')!==String(historyFilters.folderId)))return false;
-    var d=parseISO(item.date);if(!d)return false;
-    if(fromD&&d<fromD)return false;
-    if(toD&&d>toD)return false;
+    if(item&&item.date){
+      var d=parseISO(item.date);if(!d)return false;
+      if(fromD&&d<fromD)return false;
+      if(toD&&d>toD)return false;
+    }
     return true;
   }
   if(isSales){
@@ -1256,7 +1268,7 @@ function renderHistory(){
         '<div class="fg"><label class="fl">Комментарий</label><input type="text" id="hs-note" placeholder="Причина скидки, примечание..."></div>'+
       '</div>'+
       '<div id="sale-preview" style="padding:0 20px 14px;font-size:12px;color:var(--text3);min-height:22px"></div>';
-  } else {
+  } else if(isPurchases) {
     formDiv.innerHTML=
       '<div class="form-head"><div class="fh-dot" style="background:var(--blue);box-shadow:0 0 6px var(--blue)"></div><div class="fh-title">Записать поставку</div><div class="fh-sub">Увеличивает остаток и кол-во товара</div></div>'+
       '<div class="hist-body">'+
@@ -1270,16 +1282,27 @@ function renderHistory(){
         '<div class="fg"><label class="fl">Поставщик (необязательно)</label><input type="text" id="hp-supplier" placeholder="Название поставщика"></div>'+
         '<div class="fg"><label class="fl">Комментарий</label><input type="text" id="hp-note" placeholder="Условия, номер счета..."></div>'+
       '</div>';
+  } else {
+    formDiv.innerHTML=
+      '<div class="form-head"><div class="fh-dot" style="background:var(--purple);box-shadow:0 0 6px var(--purple)"></div><div class="fh-title">Записать расход</div><div class="fh-sub">Расходы показываются отдельной категорией истории</div></div>'+
+      '<div class="hist-body">'+
+        '<div class="fg"><label class="fl">Товар</label><select id="he-prod"><option value="">— Общий расход —</option>'+prodOptions.replace('<option value="">— Выберите товар —</option>','')+'</select></div>'+
+        '<div class="fg"><label class="fl">Сумма (₽)</label><input type="number" id="he-amount" min="0" step="0.01" placeholder="0.00"></div>'+
+        '<div class="fg"><label class="fl">Дата</label><input type="date" id="he-date" value="'+today+'"></div>'+
+        '<div class="fg"><label class="fl">Категория</label><input type="text" id="he-category" placeholder="Доставка, упаковка..."></div>'+
+        '<div class="fbtns" style="padding-top:22px"><button class="btn btn-primary" onclick="addExpenseOp()">＋ Расход</button></div>'+
+      '</div>'+
+      '<div class="hist-body" style="padding-top:0;grid-template-columns:1fr">'+
+        '<div class="fg"><label class="fl">Комментарий</label><input type="text" id="he-note" placeholder="Примечание к расходу"></div>'+
+      '</div>';
   }
   main.appendChild(formDiv);
-  // Auto-select product if coming from quick-sell
   if(isSales && quickSellProdId!==null){
     var qsel=$('hs-prod');
     if(qsel){qsel.value=quickSellProdId;updateSalePreview();}
     quickSellProdId=null;
   }
 
-  // LIST
   var listDiv=document.createElement('div');listDiv.className='hist-list anim';
 
   if(isSales){
@@ -1306,7 +1329,7 @@ function renderHistory(){
       '</div>';
     });
     listDiv.innerHTML=html;
-  } else {
+  } else if(isPurchases) {
     if(purchases.length===0){listDiv.innerHTML='<div class="empty"><div class="empty-icon">📥</div><div class="empty-text">Поставок нет — добавьте первую запись</div></div>';main.appendChild(listDiv);return;}
     var sortedP=purchases.filter(function(pu){return matchCommon(pu,pu.productId);}).sort(function(a,b){return applyHistorySort(a,b,'purchases');});
     var htmlP='<div class="hist-thead" style="grid-template-columns:100px 2fr 1fr 1fr 1fr 36px"><div>Дата</div><div>Товар</div><div>Кол-во</div><div>Цена закупки</div><div>Сумма</div><div></div></div>';
@@ -1323,11 +1346,33 @@ function renderHistory(){
       '</div>';
     });
     listDiv.innerHTML=htmlP;
+  } else {
+    var legacy=products.filter(function(p){return (Number(p.expenses)||0)>0;}).map(function(p){return{id:'legacy-'+p.id,productId:p.id,amount:Number(p.expenses)||0,date:'',note:'',category:'Базовый расход из карточки товара',legacy:true};});
+    var sortedE=expenseOps.concat(legacy).filter(function(ex){return matchCommon(ex,ex.productId);}).sort(function(a,b){return applyHistorySort(a,b,'expenses');});
+    if(sortedE.length===0){listDiv.innerHTML='<div class="empty"><div class="empty-icon">🧾</div><div class="empty-text">Расходов нет — добавьте первую запись</div></div>';main.appendChild(listDiv);return;}
+    var htmlE='<div class="hist-thead" style="grid-template-columns:100px 1.5fr 1.2fr 1fr 2fr 36px"><div>Дата</div><div>Товар</div><div>Категория</div><div>Сумма</div><div>Комментарий</div><div></div></div>';
+    sortedE.forEach(function(ex){
+      var p=productById(ex.productId);
+      var isLegacy=!!ex.legacy;
+      htmlE+='<div class="hist-tr" style="grid-template-columns:100px 1.5fr 1.2fr 1fr 2fr 36px">'+
+        '<div><span class="date-chip" style="background:var(--purpledim);color:var(--purple)">'+(ex.date||'—')+'</span></div>'+
+        '<div class="rname" style="font-size:13px">'+(p?esc(p.name):'<span style="color:var(--text3)">Общий расход</span>')+'</div>'+
+        '<div class="rcell">'+esc(ex.category||'—')+'</div>'+
+        '<div style="font-weight:700;color:var(--purple)">₽'+fmtD(ex.amount||0)+'</div>'+
+        '<div class="rcell" style="color:var(--text3)">'+esc(ex.note||'—')+(isLegacy?'<br><span style="font-size:10px;color:var(--text3)">legacy</span>':'')+'</div>'+
+        '<div>'+(isLegacy?'':'<button class="bico bico-d" onclick="delExpenseOp('+ex.id+')" title="Удалить">✕</button>')+'</div>'+
+      '</div>';
+    });
+    listDiv.innerHTML=htmlE;
   }
   main.appendChild(listDiv);
 }
 
-function switchHistTab(tab){historyTab=tab;render();}
+function switchHistTab(tab){
+  historyTab=tab;
+  if(tab==='sales' || tab==='purchases' || tab==='expenses')historyFilters.type=tab;
+  render();
+}
 function resetHistoryFilters(){
   historyFilters={productId:'',folderId:'',from:'',to:'',type:'all',sort:'date_desc'};
   render();
@@ -1337,11 +1382,14 @@ function applyHistorySort(a,b,type){
   var ad=a.date||'',bd=b.date||'';
   if(mode==='date_asc')return String(ad).localeCompare(String(bd));
   if(mode==='date_desc')return String(bd).localeCompare(String(ad));
+  if(mode==='qty_asc')return (a.qty||0)-(b.qty||0);
   if(mode==='qty_desc')return (b.qty||0)-(a.qty||0);
+  if(mode==='amount_desc'&&type==='expenses')return (b.amount||0)-(a.amount||0);
+  if(mode==='amount_asc'&&type==='expenses')return (a.amount||0)-(b.amount||0);
+  if(mode==='amount_asc')return ((a.qty||0)*(a.price||0))-((b.qty||0)*(b.price||0));
   if(mode==='amount_desc')return ((b.qty||0)*(b.price||0))-((a.qty||0)*(a.price||0));
-  if(mode==='profit_desc' && type==='sales'){
-    return (b.profitAtSale||0)-(a.profitAtSale||0);
-  }
+  if(mode==='profit_desc' && type==='sales')return (b.profitAtSale||0)-(a.profitAtSale||0);
+  if(mode==='profit_asc' && type==='sales')return (a.profitAtSale||0)-(b.profitAtSale||0);
   return (b.id||0)-(a.id||0);
 }
 
@@ -1436,6 +1484,22 @@ function addPurchase(){
   persist();render();
 }
 
+function addExpenseOp(){
+  var prodRaw=$('he-prod')?$('he-prod').value:'';
+  var prodId=prodRaw?parseInt(prodRaw):null;
+  var amount=parseFloat($('he-amount')?$('he-amount').value:0);
+  if(isNaN(amount)||amount<=0){alert('Введите сумму расхода больше 0.');return;}
+  var date=$('he-date')?$('he-date').value:new Date().toISOString().slice(0,10);
+  var note=$('he-note')?$('he-note').value.trim():'';
+  var category=$('he-category')?$('he-category').value.trim():'';
+  expenseOps.push({id:nextExpenseId++,productId:isNaN(prodId)?null:prodId,amount:amount,date:date,note:note,category:category});
+  if(!isNaN(prodId)){
+    var p=productById(prodId);
+    if(p)p.expenses=(Number(p.expenses)||0)+amount;
+  }
+  persist();render();
+}
+
 function delSale(id){
   var s=null;for(var i=0;i<sales.length;i++)if(sales[i].id===id){s=sales[i];break;}
   if(!s)return;
@@ -1465,11 +1529,30 @@ function delPurchase(id){
   persist();render();
 }
 
+function delExpenseOp(id){
+  var ex=null;for(var i=0;i<expenseOps.length;i++)if(expenseOps[i].id===id){ex=expenseOps[i];break;}
+  if(!ex)return;
+  expenseOps=expenseOps.filter(function(x){return x.id!==id;});
+  if(ex.productId!==null&&ex.productId!==undefined){
+    var p=productById(ex.productId);
+    if(p)p.expenses=Math.max(0,(Number(p.expenses)||0)-(Number(ex.amount)||0));
+  }
+  showUndo('Расход удалён',function(){
+    expenseOps.push(ex);
+    if(ex.productId!==null&&ex.productId!==undefined){
+      var pp=productById(ex.productId);
+      if(pp)pp.expenses=(Number(pp.expenses)||0)+(Number(ex.amount)||0);
+    }
+  });
+  persist();render();
+}
+
 
 function countNotesByDay(){
   var total=0;
   sales.forEach(function(s){if(String(s.note||'').trim())total++;});
   purchases.forEach(function(pu){if(String(pu.note||'').trim())total++;});
+  expenseOps.forEach(function(ex){if(String(ex.note||'').trim())total++;});
   customNotes.forEach(function(n){if(String(n.text||'').trim())total++;});
   return {totalNotes:total};
 }
@@ -1511,6 +1594,20 @@ function collectNotesByDay(){
       amount:amount,
       note:note,
       extra:pu.supplier?('🏭 '+pu.supplier):''
+    });
+  });
+  expenseOps.forEach(function(ex){
+    var note=String(ex.note||'').trim();
+    if(!note)return;
+    var p=productById(ex.productId);
+    push(ex.date,'expenses',{
+      type:'expense',
+      id:ex.id,
+      productName:p?p.name:'Общий расход',
+      qty:0,
+      amount:Number(ex.amount)||0,
+      note:note,
+      extra:ex.category?('🧾 '+ex.category):''
     });
   });
   customNotes.forEach(function(n){
@@ -1603,7 +1700,9 @@ function renderNotes(){
         ?'<span class="stock-badge stock-ok" style="font-size:10px">Продажа</span>'
         :(item.type==='purchase'
           ?'<span class="stock-badge stock-low" style="font-size:10px">Поставка</span>'
-          :'<span class="stock-badge" style="font-size:10px;background:var(--purpledim);color:var(--purple)">Личная</span>');
+          :(item.type==='expense'
+            ?'<span class="stock-badge" style="font-size:10px;background:var(--purpledim);color:var(--purple)">Расход</span>'
+            :'<span class="stock-badge" style="font-size:10px;background:var(--purpledim);color:var(--purple)">Личная</span>'));
       var amountColor=item.type==='sale'?'var(--green)':(item.type==='purchase'?'var(--blue)':'var(--purple)');
       var profitHtml=item.type==='sale'
         ?'<span style="font-size:11px;color:'+(item.profit>=0?'var(--green)':'var(--red)')+'"> · прибыль '+(item.profit>=0?'+':'−')+'₽'+fmtD(Math.abs(item.profit))+'</span>'
@@ -1617,7 +1716,7 @@ function renderNotes(){
             '<div style="display:flex;align-items:center;gap:8px"><div style="font-size:12px;color:'+amountColor+';font-weight:700">'+(item.type==='custom'?'—':'₽'+fmtD(item.amount))+'</div>'+deleteBtn+'</div>'+
           '</div>'+
           '<div style="margin-top:6px;font-size:13px;color:var(--text)">🗒️ '+esc(item.note)+'</div>'+
-          '<div style="margin-top:6px;font-size:11px;color:var(--text3)">'+(item.type==='custom'?'Личная заметка':('Количество: '+item.qty+' шт'+profitHtml+(item.extra?' · '+esc(item.extra):'')))+'</div>'+
+          '<div style="margin-top:6px;font-size:11px;color:var(--text3)">'+(item.type==='custom'?'Личная заметка':(item.type==='expense'?('Категория расхода'+(item.extra?' · '+esc(item.extra):'')):('Количество: '+item.qty+' шт'+profitHtml+(item.extra?' · '+esc(item.extra):''))))+'</div>'+
         '</div>';
     });
     card.innerHTML='<div class="chart-title">'+group.date+'</div><div class="chart-sub">Записей: '+group.items.length+'</div>'+rows;
