@@ -528,6 +528,42 @@ function getHistoryExpenses(includeLegacy){
   }
   return list;
 }
+function buildFolderHistoryProfit(filteredSales,expensesInRange){
+  var bucketMap={};
+  function ensureBucket(key,name,color){
+    if(!bucketMap[key])bucketMap[key]={key:key,name:name,color:color,profit:0,revenue:0,expenses:0,sales:0};
+    return bucketMap[key];
+  }
+  folders.forEach(function(f){ensureBucket('f-'+f.id,f.name,f.color);});
+  ensureBucket('no-folder','Без папки','#5a6380');
+  ensureBucket('common-exp','Общие расходы','var(--purple)');
+  filteredSales.forEach(function(s){
+    var p=productById(s.productId);if(!p)return;
+    var key=p.folderId?('f-'+p.folderId):'no-folder';
+    var b=ensureBucket(key,p.folderId?(folderById(p.folderId)||{name:'Без папки',color:'#5a6380'}).name:'Без папки',p.folderId?(folderById(p.folderId)||{color:'#5a6380'}).color:'#5a6380');
+    var profit=getActualProfitForSale(s,p);
+    b.profit+=profit;
+    b.revenue+=(Number(s.qty)||0)*(Number(s.price)||0);
+    b.sales++;
+  });
+  expensesInRange.forEach(function(ex){
+    var amount=Number(ex.amount)||0;
+    if(amount<=0)return;
+    if(ex.productId!==null&&ex.productId!==undefined){
+      var p=productById(ex.productId);
+      var f=p&&p.folderId?folderById(p.folderId):null;
+      var key=f?('f-'+f.id):'no-folder';
+      var b=ensureBucket(key,f?f.name:'Без папки',f?f.color:'#5a6380');
+      b.profit-=amount;
+      b.expenses+=amount;
+    } else {
+      var common=ensureBucket('common-exp','Общие расходы','var(--purple)');
+      common.profit-=amount;
+      common.expenses+=amount;
+    }
+  });
+  return Object.values(bucketMap).filter(function(b){return b.sales>0||b.expenses>0||b.profit!==0;});
+}
 function rebuildFlatOpsFromDocs(){
   sales=[];
   purchases=[];
@@ -631,6 +667,7 @@ function migrateData(){
     ex.amount=clampNum(parseFloat(ex.amount),0);
     if(ex.note===undefined)ex.note='';
     if(ex.category===undefined)ex.category='';
+    if(ex.source===undefined)ex.source='';
     if(ex.productId!==null&&ex.productId!==undefined)ex.productId=parseInt(ex.productId);
     if(isNaN(ex.productId))ex.productId=null;
   });
@@ -1054,11 +1091,12 @@ function renderAnalytics(){
 
   var finance=document.createElement('div');finance.className='sg anim';
   finance.innerHTML=
+    '<div class="sc green"><div class="sc-icon">💵</div><div class="sc-label">Доходы периода</div><div class="sc-val">₽'+fmt(salesRev)+'</div><div class="sc-sub">Из истории продаж</div></div>'+
     '<div class="sc purple"><div class="sc-icon">🧾</div><div class="sc-label">Закупки периода</div><div class="sc-val">₽'+fmt(purchaseExpenses)+'</div><div class="sc-sub">'+purchaseInRange.length+' операций</div></div>'+
     '<div class="sc ruby"><div class="sc-icon">💸</div><div class="sc-label">Расходы</div><div class="sc-val">₽'+fmt(periodExpenses)+'</div><div class="sc-sub">Из истории расходов</div></div>'+
     '<div class="sc blue"><div class="sc-icon">🎯</div><div class="sc-label">Потенц. прибыль</div><div class="sc-val">₽'+fmt(potentialProfit)+'</div><div class="sc-sub">По текущему остатку</div></div>'+
     '<div class="sc yellow"><div class="sc-icon">🧮</div><div class="sc-label">Средний чек</div><div class="sc-val">₽'+fmt(avgCheck)+'</div><div class="sc-sub">За выбранный период</div></div>'+
-    '<div class="sc '+((salesRev-purchaseExpenses-periodExpenses)>=0?'green':'red')+'"><div class="sc-icon">🏦</div><div class="sc-label">Net результат</div><div class="sc-val">'+((salesRev-purchaseExpenses-periodExpenses)>=0?'+':'−')+'₽'+fmt(Math.abs(salesRev-purchaseExpenses-periodExpenses))+'</div><div class="sc-sub">Выручка − закупки − расходы</div></div>';
+    '<div class="sc '+((salesRev-purchaseExpenses-periodExpenses)>=0?'green':'red')+'"><div class="sc-icon">🏦</div><div class="sc-label">Net результат</div><div class="sc-val">'+((salesRev-purchaseExpenses-periodExpenses)>=0?'+':'−')+'₽'+fmt(Math.abs(salesRev-purchaseExpenses-periodExpenses))+'</div><div class="sc-sub">Доходы − закупки − расходы</div></div>';
   main.appendChild(finance);
   var custMap={},supMap={};
   sales.forEach(function(s){if(!s.customer)return;custMap[s.customer]=(custMap[s.customer]||0)+1;});
@@ -1160,14 +1198,12 @@ function renderAnalytics(){
   topHTML+='</div>';topCard.innerHTML=topHTML;main.appendChild(topCard);
 
   // ── FOLDER CHARTS ──
-  var folderStats=[];
-  folders.forEach(function(f){
-    var list=products.filter(function(p){return p.folderId===f.id;});
-    var t=calcFor(list);
-    folderStats.push({f:f,t:t,cnt:list.length});
+  var folderStats=buildFolderHistoryProfit(filteredSales,expensesInRange).map(function(x){
+    return {f:{name:x.name,color:x.color},t:{profit:x.profit,rev:x.revenue,exp:x.expenses},cnt:x.sales};
   });
-  var noFolder=products.filter(function(p){return!p.folderId;});
-  if(noFolder.length>0){var nt=calcFor(noFolder);folderStats.push({f:{name:'Без папки',color:'#5a6380'},t:nt,cnt:noFolder.length});}
+  if(folderStats.length===0){
+    folders.forEach(function(f){folderStats.push({f:f,t:{profit:0,rev:0,exp:0},cnt:0});});
+  }
   var total2=allT.rev||1;
 
   var grid=document.createElement('div');grid.className='analytics-grid anim';
@@ -1183,8 +1219,8 @@ function renderAnalytics(){
   var svgBar='<svg viewBox="0 0 500 '+cH+'" xmlns="http://www.w3.org/2000/svg">'+barsHTML+'</svg>';
   var svgDonut=buildDonut(folderStats.map(function(s){return{name:s.f.name,val:s.t.rev,color:s.f.color};}));
   grid.innerHTML=
-    '<div class="chart-card"><div class="chart-title">Прибыль по папкам</div><div class="chart-sub">Расчётная по каталогу</div><div class="chart-area">'+svgBar+'</div></div>'+
-    '<div class="chart-card"><div class="chart-title">Выручка по папкам</div><div class="chart-sub">Доля выручки</div><div class="chart-area" style="display:flex;gap:20px;align-items:center">'+svgDonut+'<div style="display:flex;flex-direction:column;gap:8px;flex:1">'+folderStats.map(function(s){return'<div style="display:flex;align-items:center;gap:8px;font-size:12px"><div style="width:10px;height:10px;border-radius:3px;background:'+s.f.color+';flex-shrink:0"></div><span style="flex:1;color:var(--text2)">'+esc(s.f.name)+'</span><span style="font-weight:700;color:var(--text)">'+Math.round(s.t.rev/total2*100)+'%</span></div>';}).join('')+'</div></div></div>';
+    '<div class="chart-card"><div class="chart-title">Прибыль по папкам</div><div class="chart-sub">Факт по продажам и расходам периода</div><div class="chart-area">'+svgBar+'</div></div>'+
+    '<div class="chart-card"><div class="chart-title">Выручка по папкам</div><div class="chart-sub">Доля выручки продаж периода</div><div class="chart-area" style="display:flex;gap:20px;align-items:center">'+svgDonut+'<div style="display:flex;flex-direction:column;gap:8px;flex:1">'+folderStats.map(function(s){return'<div style="display:flex;align-items:center;gap:8px;font-size:12px"><div style="width:10px;height:10px;border-radius:3px;background:'+s.f.color+';flex-shrink:0"></div><span style="flex:1;color:var(--text2)">'+esc(s.f.name)+'</span><span style="font-weight:700;color:var(--text)">'+Math.round(s.t.rev/total2*100)+'%</span></div>';}).join('')+'</div></div></div>';
   main.appendChild(grid);
 }
 
@@ -1365,7 +1401,8 @@ function renderHistory(){
         '<div class="fg"><label class="fl">Категория</label><input type="text" id="he-category" placeholder="Доставка, упаковка..."></div>'+
         '<div class="fbtns" style="padding-top:22px"><button class="btn btn-primary" onclick="addExpenseOp()">＋ Расход</button></div>'+
       '</div>'+
-      '<div class="hist-body" style="padding-top:0;grid-template-columns:1fr">'+
+      '<div class="hist-body" style="padding-top:0;grid-template-columns:1fr 1fr">'+
+        '<div class="fg"><label class="fl">Списано с</label><input type="text" id="he-source" placeholder="Карта, касса, счёт..."></div>'+
         '<div class="fg"><label class="fl">Комментарий</label><input type="text" id="he-note" placeholder="Примечание к расходу"></div>'+
       '</div>';
   }
@@ -1423,14 +1460,15 @@ function renderHistory(){
   } else {
     var sortedE=getHistoryExpenses(true).filter(function(ex){return matchCommon(ex,ex.productId);}).sort(function(a,b){return applyHistorySort(a,b,'expenses');});
     if(sortedE.length===0){listDiv.innerHTML='<div class="empty"><div class="empty-icon">🧾</div><div class="empty-text">Расходов нет — добавьте первую запись</div></div>';main.appendChild(listDiv);return;}
-    var htmlE='<div class="hist-thead" style="grid-template-columns:100px 1.5fr 1.2fr 1fr 2fr 36px"><div>Дата</div><div>Товар</div><div>Категория</div><div>Сумма</div><div>Комментарий</div><div></div></div>';
+    var htmlE='<div class="hist-thead" style="grid-template-columns:100px 1.3fr 1fr 1fr 1fr 1.6fr 36px"><div>Дата</div><div>Товар</div><div>Категория</div><div>Списано с</div><div>Сумма</div><div>Комментарий</div><div></div></div>';
     sortedE.forEach(function(ex){
       var p=productById(ex.productId);
       var isLegacy=!!ex.legacy;
-      htmlE+='<div class="hist-tr" style="grid-template-columns:100px 1.5fr 1.2fr 1fr 2fr 36px">'+
+      htmlE+='<div class="hist-tr" style="grid-template-columns:100px 1.3fr 1fr 1fr 1fr 1.6fr 36px">'+
         '<div><span class="date-chip" style="background:var(--purpledim);color:var(--purple)">'+(ex.date||'—')+'</span></div>'+
         '<div class="rname" style="font-size:13px">'+(p?esc(p.name):'<span style="color:var(--text3)">Общий расход</span>')+'</div>'+
         '<div class="rcell">'+esc(ex.category||'—')+'</div>'+
+        '<div class="rcell">'+esc(ex.source||'—')+'</div>'+
         '<div style="font-weight:700;color:var(--purple)">₽'+fmtD(ex.amount||0)+'</div>'+
         '<div class="rcell" style="color:var(--text3)">'+esc(ex.note||'—')+(isLegacy?'<br><span style="font-size:10px;color:var(--text3)">legacy</span>':'')+'</div>'+
         '<div>'+(isLegacy?'':'<button class="bico bico-d" onclick="delExpenseOp('+ex.id+')" title="Удалить">✕</button>')+'</div>'+
@@ -1603,7 +1641,8 @@ function addExpenseOp(){
   var date=$('he-date')?$('he-date').value:new Date().toISOString().slice(0,10);
   var note=$('he-note')?$('he-note').value.trim():'';
   var category=$('he-category')?$('he-category').value.trim():'';
-  expenseOps.push({id:nextExpenseId++,productId:isNaN(prodId)?null:prodId,amount:amount,date:date,note:note,category:category});
+  var source=$('he-source')?$('he-source').value.trim():'';
+  expenseOps.push({id:nextExpenseId++,productId:isNaN(prodId)?null:prodId,amount:amount,date:date,note:note,category:category,source:source});
   persist();render();
 }
 
