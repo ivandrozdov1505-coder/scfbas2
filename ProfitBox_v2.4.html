@@ -1204,7 +1204,7 @@ function renderAnalytics(){
   if(folderStats.length===0){
     folders.forEach(function(f){folderStats.push({f:f,t:{profit:0,rev:0,exp:0},cnt:0});});
   }
-  var total2=allT.rev||1;
+  var total2=folderStats.reduce(function(sum,s){return sum+s.t.rev;},0)||1;
 
   var grid=document.createElement('div');grid.className='analytics-grid anim';
   var maxProfit=1;folderStats.forEach(function(s){if(Math.abs(s.t.profit)>maxProfit)maxProfit=Math.abs(s.t.profit);});
