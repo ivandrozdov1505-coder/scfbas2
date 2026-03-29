@@ -130,6 +130,9 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 .tr>div,.hist-tr>div,.stock-row>div,.stock-tr>div{min-width:0}
 .rnum{display:none}
 .rname{font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prod-title{display:flex;align-items:center;gap:10px;min-width:0}
+.prod-thumb{width:38px;height:38px;border-radius:9px;object-fit:cover;border:1px solid var(--border2);flex-shrink:0;background:var(--s2)}
+.prod-name-wrap{min-width:0}
 .rcell{color:var(--text2);font-size:13px}
 .folder-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;max-width:100%;overflow:hidden}
 .fp-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
@@ -161,6 +164,9 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 .period-tab.active,.hist-sw-btn.active{background:var(--s1);color:var(--text)}
 .period-nav{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.period-nav-btn{border:1px solid var(--border);background:var(--s3);color:var(--text2);border-radius:7px;padding:5px 10px}
 .period-label{font-size:13px;font-weight:700;color:var(--text)}
+.analytics-date-wrap{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
+.analytics-date-input{min-height:40px;padding:8px 10px;border-radius:10px;font-size:13px;background:var(--s2);border:1px solid var(--border2);color:var(--text)}
+.analytics-date-input:not(.active){opacity:.65}
 
 .date-chip{display:inline-block;font-size:11px;font-weight:600;color:var(--text3);background:var(--s3);padding:3px 8px;border-radius:6px;white-space:nowrap}
 .minstock-wrap{display:flex;align-items:center;gap:6px}.minstock-wrap input{width:60px;min-height:36px;padding:4px 8px;font-size:12px}
@@ -225,6 +231,8 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 .info-banner{background:var(--s2);border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:12px;padding:12px;display:flex;gap:12px;align-items:flex-start}
 .info-banner-title{font-size:12px;font-weight:700}.info-banner-text{font-size:11px;color:var(--text2);line-height:1.6}
 .info-banner-close{border:none;background:transparent;color:var(--text3);font-size:16px;cursor:pointer}
+.btn-add-product{background:linear-gradient(135deg,var(--green),#5fffd1);color:#04261a;font-weight:800;box-shadow:0 8px 18px var(--greendim);border:1px solid rgba(0,255,179,.22)}
+.btn-add-product:hover{transform:translateY(-1px);box-shadow:0 10px 22px var(--greendim)}
 #print-header{display:none;text-align:center;padding:16px 0;font-size:18px;font-weight:700}
 #imp{display:none}
 
@@ -895,9 +903,9 @@ function renderProducts(){
       '<div class="fg"><label class="fl">Кол-во</label><input type="number" id="fq" min="1" step="1" placeholder="1"></div>'+
       '<div class="fg"><label class="fl">Расходы (₽)</label><input type="number" id="fe" min="0" step="0.01" placeholder="0.00"></div>'+
       '<div class="fg"><label class="fl">Папка</label><select id="fcat"><option value="">— Без папки —</option></select></div>'+
-      '<div class="fbtns"><button class="btn btn-primary" id="badd" onclick="doAdd()">＋ Добавить</button><button class="btn btn-danger" id="bcan" style="display:none" onclick="doCancel()">Отмена</button></div>'+
+      '<div class="fbtns"><button class="btn btn-add-product" id="badd" onclick="doAdd()">✨ Добавить товар</button><button class="btn btn-danger" id="bcan" style="display:none" onclick="doCancel()">Отмена</button></div>'+
     '</div>'+
-    '<div style="padding:0 20px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="fg"><label class="fl">Заметка (необязательно)</label><textarea class="notes-area" id="fnotes" placeholder="Поставщик, ссылка, условия..."></textarea></div><div class="fg"><label class="fl">Изображение товара</label><input type="file" id="fimage-file" accept=\".png,.jpg,.jpeg,image/png,image/jpeg\" style=\"padding:8px\"><input type=\"text\" id=\"fimage-url\" placeholder=\"Старый формат: URL/base64 (необязательно)\" style=\"margin-top:8px\"><div id=\"fimage-error\" style=\"font-size:11px;color:var(--red);min-height:16px\"></div><div id=\"fimage-preview\" style=\"min-height:36px\"></div></div></div>';
+    '<div style="padding:0 20px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="fg"><label class="fl">Заметка (необязательно)</label><textarea class="notes-area" id="fnotes" placeholder="Поставщик, ссылка, условия..."></textarea></div><div class="fg"><label class="fl">Изображение товара</label><input type="file" id="fimage-file" accept=\".png,.jpg,.jpeg,image/png,image/jpeg\" style=\"padding:8px\"><div id=\"fimage-error\" style=\"font-size:11px;color:var(--red);min-height:16px\"></div><div id=\"fimage-preview\" style=\"min-height:36px\"></div></div></div>';
   main.appendChild(formDiv);
 
   // Populate folders select
@@ -957,7 +965,6 @@ function renderProducts(){
       formDiv.querySelector('#fcat').value=ep.folderId||'';
       var fn2=formDiv.querySelector('#fnotes');if(fn2)fn2.value=ep.notes||'';
       currentImageData=ep.image||'';
-      var fi2=formDiv.querySelector('#fimage-url');if(fi2)fi2.value=ep.image||'';
       formDiv.querySelector('#badd').textContent='💾 Сохранить';
       formDiv.querySelector('#badd').className='btn btn-warn';
       formDiv.querySelector('#bcan').style.display='';
@@ -993,7 +1000,7 @@ function renderTable(list,t){
     var stockColor=stockVal===0?'var(--red)':isLowStockProduct(p)?'var(--yellow)':'var(--green)';
     row.innerHTML=
       '<div class="rnum">'+(i+1)+'</div>'+
-      '<div class="rname" title="'+esc(p.name)+'">'+esc(p.name)+(p.article?'<div style="font-size:10px;color:var(--text3)">#'+esc(p.article)+'</div>':'')+'</div>'+
+      '<div class="rname" title="'+esc(p.name)+'"><div class="prod-title">'+(p.image?'<img class="prod-thumb" src="'+esc(p.image)+'" alt="">':'')+'<div class="prod-name-wrap">'+esc(p.name)+(p.article?'<div style="font-size:10px;color:var(--text3)">#'+esc(p.article)+'</div>':'')+'</div></div></div>'+
       '<div>'+folderCell+'</div>'+
       '<div class="rcell">₽'+fmtD(p.wholesale)+'</div>'+
       '<div class="rcell">₽'+fmtD(p.retail)+'</div>'+
@@ -1001,7 +1008,7 @@ function renderTable(list,t){
       '<div class="rcell">₽'+fmtD(p.expenses)+'</div>'+
       '<div class="pcell"><span style="color:'+pc+';font-weight:700">'+(pr>=0?'+':'−')+'₽'+fmtD(Math.abs(pr))+'</span><span class="mb '+(m>=0?'mb-p':'mb-n')+'">'+fmtP(m)+'</span></div>'+
       '<div style="font-weight:700;color:'+stockColor+';font-size:14px">'+stockVal+'<span style="font-size:10px;font-weight:400;color:var(--text3);margin-left:2px">шт</span></div>'+
-      '<div>'+(p.image?'<img src="'+esc(p.image)+'" alt="" style="width:26px;height:26px;object-fit:cover;border-radius:6px;border:1px solid var(--border);vertical-align:middle;margin-right:4px">':'')+noteCell+'</div>'+
+      '<div>'+noteCell+'</div>'+
       '<div style="display:flex;gap:4px"><button class="bico" style="color:var(--green);border-color:rgba(0,255,179,0.15);font-size:11px" onclick="quickSell('+p.id+')" title="Быстрая продажа">💸</button><button class="bico bico-e" onclick="doEdit('+p.id+')" title="Ред.">✎</button><button class="bico" style="color:var(--blue);border-color:rgba(77,159,255,0.15);font-size:11px" onclick="doDuplicate('+p.id+')" title="Дублировать">⧉</button><button class="bico bico-d" onclick="doDel('+p.id+')" title="Удал.">✕</button></div>';
     tbody.appendChild(row);
   });
@@ -1027,12 +1034,6 @@ function saleInSelectedRange(s){
   if(!fromC||!toC)return true;
   if(fromC>toC){var tmp=fromC;fromC=toC;toC=tmp;}
   return d>=fromC&&d<=toC;
-}
-function rangeLabel(){
-  if(analyticsRange.mode==='today')return 'Сегодня';
-  if(analyticsRange.mode==='7d')return 'Последние 7 дней';
-  if(analyticsRange.mode==='30d')return 'Последние 30 дней';
-  return (analyticsRange.from||'...')+' → '+(analyticsRange.to||'...');
 }
 function renderAnalytics(){
   $('page-title').textContent='Аналитика';
@@ -1072,10 +1073,9 @@ function renderAnalytics(){
         '<button class="period-nav-btn" onclick="shiftPeriod(1)">›</button>'+
       '</div>':''
     )+
-    '<div style="display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap">'+
-      '<input type="date" value="'+(analyticsRange.from||'')+'" onchange="setDashboardCustom(0,this.value)" style="'+(analyticsRange.mode==='custom'?'':'opacity:.6')+'">'+
-      '<input type="date" value="'+(analyticsRange.to||'')+'" onchange="setDashboardCustom(1,this.value)" style="'+(analyticsRange.mode==='custom'?'':'opacity:.6')+'">'+
-      '<span style="font-size:11px;color:var(--text3)">'+rangeLabel()+'</span>'+
+    '<div class="analytics-date-wrap">'+
+      '<input type="date" class="analytics-date-input'+(analyticsRange.mode==='custom'?' active':'')+'" value="'+(analyticsRange.from||'')+'" onchange="setDashboardCustom(0,this.value)">'+
+      '<input type="date" class="analytics-date-input'+(analyticsRange.mode==='custom'?' active':'')+'" value="'+(analyticsRange.to||'')+'" onchange="setDashboardCustom(1,this.value)">'+
     '</div>';
   main.appendChild(periodDiv);
 
@@ -2255,10 +2255,9 @@ function renderProductImagePreview(src){
   pr.innerHTML='<img src="'+esc(src)+'" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">';
 }
 function initProductImageInput(){
-  var fi=$('fimage-file'),url=$('fimage-url'),err=$('fimage-error');
+  var fi=$('fimage-file'),err=$('fimage-error');
   if(err)err.textContent=currentImageError||'';
-  renderProductImagePreview(currentImageData||(url?url.value.trim():''));
-  if(url)url.addEventListener('input',function(){if(!currentImageData)renderProductImagePreview(url.value.trim());});
+  renderProductImagePreview(currentImageData);
   if(!fi)return;
   fi.addEventListener('change',function(){
     var file=fi.files&&fi.files[0];
@@ -2266,15 +2265,15 @@ function initProductImageInput(){
     if(!/^image\/(png|jpeg)$/.test(file.type)){currentImageError='Допустимы только PNG/JPG/JPEG';if(err)err.textContent=currentImageError;fi.value='';return;}
     if(file.size>3*1024*1024){currentImageError='Файл слишком большой (до 3MB).';if(err)err.textContent=currentImageError;fi.value='';return;}
     var reader=new FileReader();
-    reader.onload=function(e){currentImageData=String(e.target.result||'');currentImageError='';if(err)err.textContent='';renderProductImagePreview(currentImageData);if(url)url.value='';};
+    reader.onload=function(e){currentImageData=String(e.target.result||'');currentImageError='';if(err)err.textContent='';renderProductImagePreview(currentImageData);};
     reader.onerror=function(){currentImageError='Не удалось прочитать файл.';if(err)err.textContent=currentImageError;};
     reader.readAsDataURL(file);
   });
 }
 function doAdd(){
-  var fn=$('fn'),fa=$('farticle'),fw=$('fw'),fr=$('fr'),fq=$('fq'),fe=$('fe'),fc=$('fcat'),fnotes=$('fnotes'),fimageUrl=$('fimage-url');
+  var fn=$('fn'),fa=$('farticle'),fw=$('fw'),fr=$('fr'),fq=$('fq'),fe=$('fe'),fc=$('fcat'),fnotes=$('fnotes');
   if(!fn||!fw||!fr||!fq)return;
-  var name=fn.value.trim(),article=fa?fa.value.trim():'',img=currentImageData||(fimageUrl?fimageUrl.value.trim():''),w=parseFloat(fw.value),r=parseFloat(fr.value),q=parseInt(fq.value),e=parseFloat(fe.value)||0,fid=fc&&fc.value?parseInt(fc.value):null,notes=fnotes?fnotes.value.trim():'';
+  var name=fn.value.trim(),article=fa?fa.value.trim():'',img=currentImageData,w=parseFloat(fw.value),r=parseFloat(fr.value),q=parseInt(fq.value),e=parseFloat(fe.value)||0,fid=fc&&fc.value?parseInt(fc.value):null,notes=fnotes?fnotes.value.trim():'';
   if(!name||isNaN(w)||isNaN(r)||isNaN(q)||q<1||w<0||r<0||e<0){
     var shake=function(el){if(!el)return;el.style.borderColor='var(--red)';el.style.boxShadow='0 0 0 3px rgba(255,61,107,0.1)';setTimeout(function(){el.style.borderColor='';el.style.boxShadow='';},1200);};
     if(!name)shake(fn);if(isNaN(w))shake(fw);if(isNaN(r))shake(fr);if(isNaN(q))shake(fq);
