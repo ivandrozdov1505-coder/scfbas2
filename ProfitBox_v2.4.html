@@ -25,6 +25,7 @@ body.theme-ruby{--bg:#12040b;--s1:#1d0813;--s2:#2a0f1d;--s3:#37162a;--border:#4b
 body.theme-emerald{--bg:#03110d;--s1:#071c16;--s2:#0d2820;--s3:#143529;--border:#1d4a39;--border2:#2a664f;--green:#39f6b8;--green2:#1fd39a;--greendim:rgba(57,246,184,.12);--red:#ff6b87;--reddim:rgba(255,107,135,.1);--yellow:#ffe16a;--yellowdim:rgba(255,225,106,.15);--blue:#5ccaff;--bluedim:rgba(92,202,255,.12);--purple:#b78bff;--purpledim:rgba(183,139,255,.12);--orange:#ffb06a;--orangedim:rgba(255,176,106,.14);--text:#ddfff4;--text2:#87c7af;--text3:#4f8d77}
 body.theme-sunset{--bg:#15070a;--s1:#21100f;--s2:#2f1813;--s3:#3e2318;--border:#5c3320;--border2:#7a472d;--green:#ff9f43;--green2:#ff7f2f;--greendim:rgba(255,159,67,.11);--red:#ff5f73;--reddim:rgba(255,95,115,.1);--yellow:#ffe76a;--yellowdim:rgba(255,231,106,.15);--blue:#5fb8ff;--bluedim:rgba(95,184,255,.12);--purple:#d38bff;--purpledim:rgba(211,139,255,.12);--orange:#ffb366;--orangedim:rgba(255,179,102,.14);--text:#ffe8d8;--text2:#d2a483;--text3:#8e6449}
 
+/* LAYOUT */
 html,body{width:100%;max-width:100%;overflow-x:hidden}
 body{background:var(--bg);color:var(--text);font-family:-apple-system,'Segoe UI',system-ui,sans-serif;min-height:100vh}
 body::before{content:'';position:fixed;top:-40vh;left:-20vw;width:70vw;height:70vh;background:radial-gradient(ellipse,rgba(0,200,150,.04) 0%,transparent 72%);pointer-events:none;z-index:0}
@@ -62,6 +63,7 @@ body.fullscreen #toggle-sidebar-btn .ic::before{content:'▶'}
 .topbar-more-menu .btn{width:100%;justify-content:flex-start;min-height:42px}
 .flash{display:none}
 
+/* COMPONENTS */
 .btn{border:none;border-radius:9px;padding:9px 14px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:all .15s}
 .btn-ghost{background:var(--s3);color:var(--text2);border:1px solid var(--border2)}
 .btn-ghost:hover{background:var(--s2);color:var(--text)}
@@ -128,6 +130,9 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 .tr>div,.hist-tr>div,.stock-row>div,.stock-tr>div{min-width:0}
 .rnum{display:none}
 .rname{font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prod-title{display:flex;align-items:center;gap:10px;min-width:0}
+.prod-thumb{width:38px;height:38px;border-radius:9px;object-fit:cover;border:1px solid var(--border2);flex-shrink:0;background:var(--s2)}
+.prod-name-wrap{min-width:0}
 .rcell{color:var(--text2);font-size:13px}
 .folder-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;max-width:100%;overflow:hidden}
 .fp-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
@@ -159,6 +164,9 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 .period-tab.active,.hist-sw-btn.active{background:var(--s1);color:var(--text)}
 .period-nav{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.period-nav-btn{border:1px solid var(--border);background:var(--s3);color:var(--text2);border-radius:7px;padding:5px 10px}
 .period-label{font-size:13px;font-weight:700;color:var(--text)}
+.analytics-date-wrap{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
+.analytics-date-input{min-height:40px;padding:8px 10px;border-radius:10px;font-size:13px;background:var(--s2);border:1px solid var(--border2);color:var(--text)}
+.analytics-date-input:not(.active){opacity:.65}
 
 .date-chip{display:inline-block;font-size:11px;font-weight:600;color:var(--text3);background:var(--s3);padding:3px 8px;border-radius:6px;white-space:nowrap}
 .minstock-wrap{display:flex;align-items:center;gap:6px}.minstock-wrap input{width:60px;min-height:36px;padding:4px 8px;font-size:12px}
@@ -170,6 +178,7 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 .stock-threshold-toggle{font-size:10px;color:var(--text3);display:inline-flex;align-items:center;gap:4px}
 .stock-off{background:var(--s3);color:var(--text2)}
 
+/* STATES */
 /* FIX: desktop stock layout */
 @media (min-width:768px){
   .stock-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;overflow:hidden}
@@ -222,6 +231,8 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 .info-banner{background:var(--s2);border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:12px;padding:12px;display:flex;gap:12px;align-items:flex-start}
 .info-banner-title{font-size:12px;font-weight:700}.info-banner-text{font-size:11px;color:var(--text2);line-height:1.6}
 .info-banner-close{border:none;background:transparent;color:var(--text3);font-size:16px;cursor:pointer}
+.btn-add-product{background:linear-gradient(135deg,var(--green),#5fffd1);color:#04261a;font-weight:800;box-shadow:0 8px 18px var(--greendim);border:1px solid rgba(0,255,179,.22)}
+.btn-add-product:hover{transform:translateY(-1px);box-shadow:0 10px 22px var(--greendim)}
 #print-header{display:none;text-align:center;padding:16px 0;font-size:18px;font-weight:700}
 #imp{display:none}
 
@@ -254,7 +265,6 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
   .tfoot{border-top:1px solid var(--border);border-bottom:none}
   .thead,.tr,.tfoot{grid-template-columns:28px 1.6fr 90px 1fr 1fr 1fr 1fr 1.1fr 70px 1fr 80px!important}
   .hist-thead,.hist-tr{grid-template-columns:100px 2fr 1fr 1fr 1fr 1fr 36px!important}
-  .stock-card-head,.stock-row,.stock-thead,.stock-tr{grid-template-columns:28px minmax(170px,1.8fr) minmax(90px,1fr) minmax(72px,.7fr) minmax(72px,.7fr) minmax(72px,.7fr) minmax(76px,.8fr) minmax(110px,1fr) minmax(110px,1fr) minmax(170px,1.7fr) minmax(110px,1fr) minmax(80px,.8fr)!important}
 
   #tbody{display:block;padding:0}
   .tr,.hist-tr,.stock-row,.stock-tr{display:grid!important;border:none;border-radius:0;padding:12px 18px;margin:0;gap:10px;border-bottom:1px solid var(--border);background:transparent!important;align-items:center}
@@ -571,6 +581,13 @@ function getHistoryExpenses(includeLegacy){
 }
 function buildFolderHistoryProfit(filteredSales,expensesInRange){
   var bucketMap={};
+  function folderMetaByProduct(productId){
+    var p=productById(productId);
+    if(!p||!p.folderId)return {key:'no-folder',name:'Без папки',color:'#5a6380'};
+    var f=folderById(p.folderId);
+    if(!f)return {key:'no-folder',name:'Без папки',color:'#5a6380'};
+    return {key:'f-'+f.id,name:f.name,color:f.color};
+  }
   function ensureBucket(key,name,color){
     if(!bucketMap[key])bucketMap[key]={key:key,name:name,color:color,profit:0,revenue:0,expenses:0,sales:0};
     return bucketMap[key];
@@ -580,8 +597,8 @@ function buildFolderHistoryProfit(filteredSales,expensesInRange){
   ensureBucket('common-exp','Общие расходы','var(--purple)');
   filteredSales.forEach(function(s){
     var p=productById(s.productId);if(!p)return;
-    var key=p.folderId?('f-'+p.folderId):'no-folder';
-    var b=ensureBucket(key,p.folderId?(folderById(p.folderId)||{name:'Без папки',color:'#5a6380'}).name:'Без папки',p.folderId?(folderById(p.folderId)||{color:'#5a6380'}).color:'#5a6380');
+    var folderMeta=folderMetaByProduct(s.productId);
+    var b=ensureBucket(folderMeta.key,folderMeta.name,folderMeta.color);
     var profit=getActualProfitForSale(s,p);
     b.profit+=profit;
     b.revenue+=(Number(s.qty)||0)*(Number(s.price)||0);
@@ -591,10 +608,8 @@ function buildFolderHistoryProfit(filteredSales,expensesInRange){
     var amount=Number(ex.amount)||0;
     if(amount<=0)return;
     if(ex.productId!==null&&ex.productId!==undefined){
-      var p=productById(ex.productId);
-      var f=p&&p.folderId?folderById(p.folderId):null;
-      var key=f?('f-'+f.id):'no-folder';
-      var b=ensureBucket(key,f?f.name:'Без папки',f?f.color:'#5a6380');
+      var folderMeta=folderMetaByProduct(ex.productId);
+      var b=ensureBucket(folderMeta.key,folderMeta.name,folderMeta.color);
       b.profit-=amount;
       b.expenses+=amount;
     } else {
@@ -758,7 +773,7 @@ var filteredProducts=function(){
 // ══════════════════════════════════════════════════════
 function persist(){
   rebuildFlatOpsFromDocs();
-  try{localStorage.setItem('ptv5',JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,saleDocs:saleDocs,supplyDocs:supplyDocs,expenseOps:expenseOps,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextExpenseId:nextExpenseId,nextCustomNoteId:nextCustomNoteId,nextSaleDocId:nextSaleDocId,nextSupplyDocId:nextSupplyDocId,nextSaleLineId:nextSaleLineId,nextSupplyLineId:nextSupplyLineId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange}));}catch(e){}
+  saveMainStorage();
   var f=$('flash');if(f){f.classList.add('on');setTimeout(function(){f.classList.remove('on');},1500);}
   liveUpdate();
 }
@@ -774,7 +789,7 @@ function loadData(){
     }
   }catch(e){}
   migrateData();
-  try{localStorage.setItem('ptv5',JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,saleDocs:saleDocs,supplyDocs:supplyDocs,expenseOps:expenseOps,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextExpenseId:nextExpenseId,nextCustomNoteId:nextCustomNoteId,nextSaleDocId:nextSaleDocId,nextSupplyDocId:nextSupplyDocId,nextSaleLineId:nextSaleLineId,nextSupplyLineId:nextSupplyLineId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange}));}catch(e){}
+  saveMainStorage();
 }
 
 // ══════════════════════════════════════════════════════
@@ -888,9 +903,9 @@ function renderProducts(){
       '<div class="fg"><label class="fl">Кол-во</label><input type="number" id="fq" min="1" step="1" placeholder="1"></div>'+
       '<div class="fg"><label class="fl">Расходы (₽)</label><input type="number" id="fe" min="0" step="0.01" placeholder="0.00"></div>'+
       '<div class="fg"><label class="fl">Папка</label><select id="fcat"><option value="">— Без папки —</option></select></div>'+
-      '<div class="fbtns"><button class="btn btn-primary" id="badd" onclick="doAdd()">＋ Добавить</button><button class="btn btn-danger" id="bcan" style="display:none" onclick="doCancel()">Отмена</button></div>'+
+      '<div class="fbtns"><button class="btn btn-add-product" id="badd" onclick="doAdd()">✨ Добавить товар</button><button class="btn btn-danger" id="bcan" style="display:none" onclick="doCancel()">Отмена</button></div>'+
     '</div>'+
-    '<div style="padding:0 20px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="fg"><label class="fl">Заметка (необязательно)</label><textarea class="notes-area" id="fnotes" placeholder="Поставщик, ссылка, условия..."></textarea></div><div class="fg"><label class="fl">Изображение товара</label><input type="file" id="fimage-file" accept=\".png,.jpg,.jpeg,image/png,image/jpeg\" style=\"padding:8px\"><input type=\"text\" id=\"fimage-url\" placeholder=\"Старый формат: URL/base64 (необязательно)\" style=\"margin-top:8px\"><div id=\"fimage-error\" style=\"font-size:11px;color:var(--red);min-height:16px\"></div><div id=\"fimage-preview\" style=\"min-height:36px\"></div></div></div>';
+    '<div style="padding:0 20px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="fg"><label class="fl">Заметка (необязательно)</label><textarea class="notes-area" id="fnotes" placeholder="Поставщик, ссылка, условия..."></textarea></div><div class="fg"><label class="fl">Изображение товара</label><input type="file" id="fimage-file" accept=\".png,.jpg,.jpeg,image/png,image/jpeg\" style=\"padding:8px\"><div id=\"fimage-error\" style=\"font-size:11px;color:var(--red);min-height:16px\"></div><div id=\"fimage-preview\" style=\"min-height:36px\"></div></div></div>';
   main.appendChild(formDiv);
 
   // Populate folders select
@@ -950,7 +965,6 @@ function renderProducts(){
       formDiv.querySelector('#fcat').value=ep.folderId||'';
       var fn2=formDiv.querySelector('#fnotes');if(fn2)fn2.value=ep.notes||'';
       currentImageData=ep.image||'';
-      var fi2=formDiv.querySelector('#fimage-url');if(fi2)fi2.value=ep.image||'';
       formDiv.querySelector('#badd').textContent='💾 Сохранить';
       formDiv.querySelector('#badd').className='btn btn-warn';
       formDiv.querySelector('#bcan').style.display='';
@@ -986,7 +1000,7 @@ function renderTable(list,t){
     var stockColor=stockVal===0?'var(--red)':isLowStockProduct(p)?'var(--yellow)':'var(--green)';
     row.innerHTML=
       '<div class="rnum">'+(i+1)+'</div>'+
-      '<div class="rname" title="'+esc(p.name)+'">'+esc(p.name)+(p.article?'<div style="font-size:10px;color:var(--text3)">#'+esc(p.article)+'</div>':'')+'</div>'+
+      '<div class="rname" title="'+esc(p.name)+'"><div class="prod-title">'+(p.image?'<img class="prod-thumb" src="'+esc(p.image)+'" alt="">':'')+'<div class="prod-name-wrap">'+esc(p.name)+(p.article?'<div style="font-size:10px;color:var(--text3)">#'+esc(p.article)+'</div>':'')+'</div></div></div>'+
       '<div>'+folderCell+'</div>'+
       '<div class="rcell">₽'+fmtD(p.wholesale)+'</div>'+
       '<div class="rcell">₽'+fmtD(p.retail)+'</div>'+
@@ -994,7 +1008,7 @@ function renderTable(list,t){
       '<div class="rcell">₽'+fmtD(p.expenses)+'</div>'+
       '<div class="pcell"><span style="color:'+pc+';font-weight:700">'+(pr>=0?'+':'−')+'₽'+fmtD(Math.abs(pr))+'</span><span class="mb '+(m>=0?'mb-p':'mb-n')+'">'+fmtP(m)+'</span></div>'+
       '<div style="font-weight:700;color:'+stockColor+';font-size:14px">'+stockVal+'<span style="font-size:10px;font-weight:400;color:var(--text3);margin-left:2px">шт</span></div>'+
-      '<div>'+(p.image?'<img src="'+esc(p.image)+'" alt="" style="width:26px;height:26px;object-fit:cover;border-radius:6px;border:1px solid var(--border);vertical-align:middle;margin-right:4px">':'')+noteCell+'</div>'+
+      '<div>'+noteCell+'</div>'+
       '<div style="display:flex;gap:4px"><button class="bico" style="color:var(--green);border-color:rgba(0,255,179,0.15);font-size:11px" onclick="quickSell('+p.id+')" title="Быстрая продажа">💸</button><button class="bico bico-e" onclick="doEdit('+p.id+')" title="Ред.">✎</button><button class="bico" style="color:var(--blue);border-color:rgba(77,159,255,0.15);font-size:11px" onclick="doDuplicate('+p.id+')" title="Дублировать">⧉</button><button class="bico bico-d" onclick="doDel('+p.id+')" title="Удал.">✕</button></div>';
     tbody.appendChild(row);
   });
@@ -1020,12 +1034,6 @@ function saleInSelectedRange(s){
   if(!fromC||!toC)return true;
   if(fromC>toC){var tmp=fromC;fromC=toC;toC=tmp;}
   return d>=fromC&&d<=toC;
-}
-function rangeLabel(){
-  if(analyticsRange.mode==='today')return 'Сегодня';
-  if(analyticsRange.mode==='7d')return 'Последние 7 дней';
-  if(analyticsRange.mode==='30d')return 'Последние 30 дней';
-  return (analyticsRange.from||'...')+' → '+(analyticsRange.to||'...');
 }
 function renderAnalytics(){
   $('page-title').textContent='Аналитика';
@@ -1065,10 +1073,9 @@ function renderAnalytics(){
         '<button class="period-nav-btn" onclick="shiftPeriod(1)">›</button>'+
       '</div>':''
     )+
-    '<div style="display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap">'+
-      '<input type="date" value="'+(analyticsRange.from||'')+'" onchange="setDashboardCustom(0,this.value)" style="'+(analyticsRange.mode==='custom'?'':'opacity:.6')+'">'+
-      '<input type="date" value="'+(analyticsRange.to||'')+'" onchange="setDashboardCustom(1,this.value)" style="'+(analyticsRange.mode==='custom'?'':'opacity:.6')+'">'+
-      '<span style="font-size:11px;color:var(--text3)">'+rangeLabel()+'</span>'+
+    '<div class="analytics-date-wrap">'+
+      '<input type="date" class="analytics-date-input'+(analyticsRange.mode==='custom'?' active':'')+'" value="'+(analyticsRange.from||'')+'" onchange="setDashboardCustom(0,this.value)">'+
+      '<input type="date" class="analytics-date-input'+(analyticsRange.mode==='custom'?' active':'')+'" value="'+(analyticsRange.to||'')+'" onchange="setDashboardCustom(1,this.value)">'+
     '</div>';
   main.appendChild(periodDiv);
 
@@ -2248,10 +2255,9 @@ function renderProductImagePreview(src){
   pr.innerHTML='<img src="'+esc(src)+'" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">';
 }
 function initProductImageInput(){
-  var fi=$('fimage-file'),url=$('fimage-url'),err=$('fimage-error');
+  var fi=$('fimage-file'),err=$('fimage-error');
   if(err)err.textContent=currentImageError||'';
-  renderProductImagePreview(currentImageData||(url?url.value.trim():''));
-  if(url)url.addEventListener('input',function(){if(!currentImageData)renderProductImagePreview(url.value.trim());});
+  renderProductImagePreview(currentImageData);
   if(!fi)return;
   fi.addEventListener('change',function(){
     var file=fi.files&&fi.files[0];
@@ -2259,15 +2265,15 @@ function initProductImageInput(){
     if(!/^image\/(png|jpeg)$/.test(file.type)){currentImageError='Допустимы только PNG/JPG/JPEG';if(err)err.textContent=currentImageError;fi.value='';return;}
     if(file.size>3*1024*1024){currentImageError='Файл слишком большой (до 3MB).';if(err)err.textContent=currentImageError;fi.value='';return;}
     var reader=new FileReader();
-    reader.onload=function(e){currentImageData=String(e.target.result||'');currentImageError='';if(err)err.textContent='';renderProductImagePreview(currentImageData);if(url)url.value='';};
+    reader.onload=function(e){currentImageData=String(e.target.result||'');currentImageError='';if(err)err.textContent='';renderProductImagePreview(currentImageData);};
     reader.onerror=function(){currentImageError='Не удалось прочитать файл.';if(err)err.textContent=currentImageError;};
     reader.readAsDataURL(file);
   });
 }
 function doAdd(){
-  var fn=$('fn'),fa=$('farticle'),fw=$('fw'),fr=$('fr'),fq=$('fq'),fe=$('fe'),fc=$('fcat'),fnotes=$('fnotes'),fimageUrl=$('fimage-url');
+  var fn=$('fn'),fa=$('farticle'),fw=$('fw'),fr=$('fr'),fq=$('fq'),fe=$('fe'),fc=$('fcat'),fnotes=$('fnotes');
   if(!fn||!fw||!fr||!fq)return;
-  var name=fn.value.trim(),article=fa?fa.value.trim():'',img=currentImageData||(fimageUrl?fimageUrl.value.trim():''),w=parseFloat(fw.value),r=parseFloat(fr.value),q=parseInt(fq.value),e=parseFloat(fe.value)||0,fid=fc&&fc.value?parseInt(fc.value):null,notes=fnotes?fnotes.value.trim():'';
+  var name=fn.value.trim(),article=fa?fa.value.trim():'',img=currentImageData,w=parseFloat(fw.value),r=parseFloat(fr.value),q=parseInt(fq.value),e=parseFloat(fe.value)||0,fid=fc&&fc.value?parseInt(fc.value):null,notes=fnotes?fnotes.value.trim():'';
   if(!name||isNaN(w)||isNaN(r)||isNaN(q)||q<1||w<0||r<0||e<0){
     var shake=function(el){if(!el)return;el.style.borderColor='var(--red)';el.style.boxShadow='0 0 0 3px rgba(255,61,107,0.1)';setTimeout(function(){el.style.borderColor='';el.style.boxShadow='';},1200);};
     if(!name)shake(fn);if(isNaN(w))shake(fw);if(isNaN(r))shake(fr);if(isNaN(q))shake(fq);
@@ -2779,9 +2785,15 @@ var MAX_BACKUPS=10;
 var AUTO_BACKUP_INTERVAL=2*60*60*1000; // 2 hours
 var LAST_AUTO_KEY='ptv5_last_auto_backup';
 
+function snapshotDataObject(){
+  return {products:products,folders:folders,sales:sales,purchases:purchases,saleDocs:saleDocs,supplyDocs:supplyDocs,expenseOps:expenseOps,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextExpenseId:nextExpenseId,nextCustomNoteId:nextCustomNoteId,nextSaleDocId:nextSaleDocId,nextSupplyDocId:nextSupplyDocId,nextSaleLineId:nextSaleLineId,nextSupplyLineId:nextSupplyLineId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange};
+}
+function saveMainStorage(){
+  try{localStorage.setItem('ptv5',JSON.stringify(snapshotDataObject()));}catch(e){}
+}
 function getBackupData(){
   rebuildFlatOpsFromDocs();
-  return JSON.stringify({products:products,folders:folders,sales:sales,purchases:purchases,saleDocs:saleDocs,supplyDocs:supplyDocs,expenseOps:expenseOps,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextExpenseId:nextExpenseId,nextCustomNoteId:nextCustomNoteId,nextSaleDocId:nextSaleDocId,nextSupplyDocId:nextSupplyDocId,nextSaleLineId:nextSaleLineId,nextSupplyLineId:nextSupplyLineId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange});
+  return JSON.stringify(snapshotDataObject());
 }
 
 function loadBackups(){
