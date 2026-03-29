@@ -1034,7 +1034,7 @@ function renderAnalytics(){
 
   if(!localStorage.getItem('hide-tip-analytics')){
     var tip=document.createElement('div');tip.className='info-banner anim';
-    tip.innerHTML='<div class="info-banner-icon">📊</div><div class="info-banner-body"><div class="info-banner-title">Вкладка «Аналитика»</div><div class="info-banner-text">Переключай период кнопками <b>Всё время / Месяц / Год</b> — карточки и графики пересчитываются по продажам из «Истории».<br><b>Средний чек</b> и <b>ср. прибыль/продажа</b> считаются по реальным продажам. <b>Δ к прошлому периоду</b> — бейдж роста/падения у выручки и прибыли.<br><b>Топ позиций</b> — реальные продажи за выбранный период. <b>По дням</b> — детальный график при выборе месяца.</div></div><button class="info-banner-close" onclick="localStorage.setItem(\'hide-tip-analytics\',1);this.closest(\'.info-banner\').remove()">✕</button>';
+    tip.innerHTML='<div class="info-banner-icon">📊</div><div class="info-banner-body"><div class="info-banner-title">Вкладка «Аналитика»</div><div class="info-banner-text">Переключай период кнопками <b>Сегодня / 7 дней / 30 дней / Период</b> — карточки и графики пересчитываются по продажам из «Истории».<br><b>Средний чек</b> и <b>ср. прибыль/продажа</b> считаются по реальным продажам. <b>Δ к прошлому периоду</b> — бейдж роста/падения у выручки и прибыли.<br><b>Топ позиций</b> — реальные продажи за выбранный диапазон дат.</div></div><button class="info-banner-close" onclick="localStorage.setItem(\'hide-tip-analytics\',1);this.closest(\'.info-banner\').remove()">✕</button>';
     main.appendChild(tip);
   }
 
