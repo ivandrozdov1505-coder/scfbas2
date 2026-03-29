@@ -1039,13 +1039,9 @@ function renderAnalytics(){
   }
 
   // ── PERIOD SELECTOR ──
-  var MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
   var periodDiv=document.createElement('div');
   periodDiv.className='anim';
   periodDiv.style.cssText='display:flex;align-items:center;gap:16px;flex-wrap:wrap';
-  var periodLabel='';
-  if(analyticsPeriod==='month') periodLabel=MONTHS[analyticsMonth]+' '+analyticsYear;
-  else if(analyticsPeriod==='year') periodLabel=String(analyticsYear);
   periodDiv.innerHTML=
     '<div class="period-tabs" style="margin-right:4px">'+
       '<button class="period-tab'+(analyticsRange.mode==='today'?' active':'')+'" onclick="setDashboardRange(\'today\')">Сегодня</button>'+
@@ -1053,18 +1049,6 @@ function renderAnalytics(){
       '<button class="period-tab'+(analyticsRange.mode==='30d'?' active':'')+'" onclick="setDashboardRange(\'30d\')">30 дней</button>'+
       '<button class="period-tab'+(analyticsRange.mode==='custom'?' active':'')+'" onclick="setDashboardRange(\'custom\')">Период</button>'+
     '</div>'+
-    '<div class="period-tabs">'+
-      '<button class="period-tab'+(analyticsPeriod==='all'?' active':'')+'" onclick="setPeriod(\'all\')">Всё время</button>'+
-      '<button class="period-tab'+(analyticsPeriod==='month'?' active':'')+'" onclick="setPeriod(\'month\')">Месяц</button>'+
-      '<button class="period-tab'+(analyticsPeriod==='year'?' active':'')+'" onclick="setPeriod(\'year\')">Год</button>'+
-    '</div>'+
-    (analyticsPeriod!=='all'?
-      '<div class="period-nav">'+
-        '<button class="period-nav-btn" onclick="shiftPeriod(-1)">‹</button>'+
-        '<div class="period-label">'+periodLabel+'</div>'+
-        '<button class="period-nav-btn" onclick="shiftPeriod(1)">›</button>'+
-      '</div>':''
-    )+
     '<div style="display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap">'+
       '<input type="date" value="'+(analyticsRange.from||'')+'" onchange="setDashboardCustom(0,this.value)" style="'+(analyticsRange.mode==='custom'?'':'opacity:.6')+'">'+
       '<input type="date" value="'+(analyticsRange.to||'')+'" onchange="setDashboardCustom(1,this.value)" style="'+(analyticsRange.mode==='custom'?'':'opacity:.6')+'">'+
