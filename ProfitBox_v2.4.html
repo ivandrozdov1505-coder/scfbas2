@@ -267,6 +267,46 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
   .tr>div::before,.hist-tr>div::before,.stock-row>div::before,.stock-tr>div::before{content:none!important}
 }
 
+/* LANDSCAPE PHONE LAYOUT (reference-like sidebar/content split) */
+@media (orientation:landscape) and (max-width:900px){
+  body.layout-landscape-phone #mobile-nav{display:none}
+  body.layout-landscape-phone #sb-overlay{display:none!important}
+  body.layout-landscape-phone #app{display:flex;min-height:100vh}
+  body.layout-landscape-phone #sidebar{
+    position:sticky;top:0;left:auto;bottom:auto;transform:none;
+    width:230px;height:100vh;z-index:50
+  }
+  body.layout-landscape-phone #content{flex:1;display:flex;flex-direction:column}
+  body.layout-landscape-phone #main{padding:16px 18px 18px;gap:14px}
+  body.layout-landscape-phone #topbar{padding:8px 14px;grid-template-columns:auto minmax(0,1fr) auto}
+  body.layout-landscape-phone #toggle-sidebar-btn{display:none!important}
+  body.layout-landscape-phone .topbar-r>.btn{display:inline-flex}
+  body.layout-landscape-phone .topbar-r>.btn:nth-child(1),body.layout-landscape-phone .topbar-r>.btn:nth-child(2){min-height:38px;padding:8px 10px}
+  body.layout-landscape-phone .sg{grid-template-columns:repeat(4,minmax(0,1fr))}
+  body.layout-landscape-phone .form-body{grid-template-columns:2.1fr 1fr 1fr 1fr 1fr 120px auto!important;align-items:end}
+  body.layout-landscape-phone .hist-body{grid-template-columns:2fr 1fr 1fr 1fr auto!important;align-items:end}
+  body.layout-landscape-phone .fbtns{flex-direction:column}
+  body.layout-landscape-phone .fbtns .btn,body.layout-landscape-phone .hist-body .btn{width:100%;min-height:38px}
+
+  body.layout-landscape-phone .tw,body.layout-landscape-phone .hist-list,body.layout-landscape-phone .stock-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+  body.layout-landscape-phone .thead,body.layout-landscape-phone .tfoot,body.layout-landscape-phone .hist-thead,body.layout-landscape-phone .stock-card-head,body.layout-landscape-phone .stock-thead{
+    display:grid!important;padding:10px 12px;gap:10px;background:var(--s2);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--text3);text-transform:uppercase;align-items:center
+  }
+  body.layout-landscape-phone .tfoot{border-top:1px solid var(--border);border-bottom:none}
+  body.layout-landscape-phone .thead,body.layout-landscape-phone .tr,body.layout-landscape-phone .tfoot{grid-template-columns:28px 1.6fr 90px 1fr 1fr 1fr 1fr 1.1fr 70px 1fr 80px!important}
+  body.layout-landscape-phone .hist-thead,body.layout-landscape-phone .hist-tr{grid-template-columns:100px 2fr 1fr 1fr 1fr 1fr 36px!important}
+  body.layout-landscape-phone .stock-card-head,body.layout-landscape-phone .stock-row,body.layout-landscape-phone .stock-thead,body.layout-landscape-phone .stock-tr{grid-template-columns:28px minmax(170px,1.8fr) minmax(90px,1fr) minmax(72px,.7fr) minmax(72px,.7fr) minmax(72px,.7fr) minmax(76px,.8fr) minmax(110px,1fr) minmax(110px,1fr) minmax(170px,1.7fr) minmax(110px,1fr) minmax(80px,.8fr)!important}
+  body.layout-landscape-phone #tbody{display:block;padding:0}
+  body.layout-landscape-phone .tr,body.layout-landscape-phone .hist-tr,body.layout-landscape-phone .stock-row,body.layout-landscape-phone .stock-tr{
+    display:grid!important;border:none;border-radius:0;padding:11px 12px;margin:0;gap:10px;border-bottom:1px solid var(--border);background:transparent!important;align-items:center
+  }
+  body.layout-landscape-phone .tr:last-child,body.layout-landscape-phone .hist-tr:last-child,body.layout-landscape-phone .stock-row:last-child,body.layout-landscape-phone .stock-tr:last-child{border-bottom:none}
+  body.layout-landscape-phone .tr.even{background:rgba(19,24,32,.5)!important}
+  body.layout-landscape-phone .tr:hover,body.layout-landscape-phone .hist-tr:hover,body.layout-landscape-phone .stock-row:hover,body.layout-landscape-phone .stock-tr:hover{background:var(--s2)!important}
+  body.layout-landscape-phone .rnum{display:flex;width:26px;height:26px;border-radius:7px;background:var(--s3);border:1px solid var(--border);align-items:center;justify-content:center;font-size:10px;color:var(--text3);font-weight:700}
+  body.layout-landscape-phone .tr>div::before,body.layout-landscape-phone .hist-tr>div::before,body.layout-landscape-phone .stock-row>div::before,body.layout-landscape-phone .stock-tr>div::before{content:none!important}
+}
+
 @media print{
   #sidebar,#topbar,#mobile-nav,.toolbar,.fbtns,.bico,#tfoot .bico,button{display:none!important}
   body{background:#fff;color:#000}
@@ -477,6 +517,7 @@ var historyFilters={productId:'',folderId:'',from:'',to:'',type:'all',sort:'date
 var stockFilters={folderId:'all',problemOnly:false,groupByFolder:false,sort:'stock_asc'};
 var lastDeletedAction=null;
 var currentImageData='',currentImageError='';
+var landscapePhoneMq=window.matchMedia('(orientation: landscape) and (max-width: 900px)');
 
 // ══════════════════════════════════════════════════════
 // UTILS
@@ -2301,7 +2342,7 @@ function applyTheme(){setTheme(currentTheme);}
 // FULLSCREEN (hide sidebar)
 // ══════════════════════════════════════════════════════
 function toggleSidebar(){
-  if(window.innerWidth<=768){
+  if(window.innerWidth<=768&&!document.body.classList.contains('layout-landscape-phone')){
     toggleMobileSidebar();
   } else {
     document.body.classList.toggle('fullscreen');
@@ -2713,6 +2754,14 @@ function closeMobileSidebar(){
   if(ov)ov.classList.remove('show');
 }
 
+// Режимы интерфейса: portrait оставляем текущим, landscape-phone перестраиваем как reference-layout.
+function applyOrientationLayout(){
+  var isLandscapePhone=!!(landscapePhoneMq&&landscapePhoneMq.matches);
+  document.body.classList.toggle('layout-landscape-phone',isLandscapePhone);
+  document.body.classList.toggle('layout-portrait-phone',!isLandscapePhone);
+  if(isLandscapePhone)closeMobileSidebar();
+}
+
 // Update mobile nav active state on tab switch
 var _origSwitchTab=switchTab;
 switchTab=function(tab){
@@ -2868,10 +2917,14 @@ setInterval(tryAutoBackup,15*60*1000);
 
 loadData();
 applyTheme();
+applyOrientationLayout();
 renderColorPicker();
 initCalButtons();
 render();
 setTimeout(initMobileBanners,50);
+if(landscapePhoneMq&&landscapePhoneMq.addEventListener)landscapePhoneMq.addEventListener('change',applyOrientationLayout);
+else if(landscapePhoneMq&&landscapePhoneMq.addListener)landscapePhoneMq.addListener(applyOrientationLayout);
+window.addEventListener('resize',applyOrientationLayout);
 </script>
 </body>
 </html>
