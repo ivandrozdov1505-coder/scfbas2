@@ -159,6 +159,9 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 .period-tab.active,.hist-sw-btn.active{background:var(--s1);color:var(--text)}
 .period-nav{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.period-nav-btn{border:1px solid var(--border);background:var(--s3);color:var(--text2);border-radius:7px;padding:5px 10px}
 .period-label{font-size:13px;font-weight:700;color:var(--text)}
+.analytics-date-wrap{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
+.analytics-date-input{opacity:.6}
+.analytics-date-input.active{opacity:1}
 
 .date-chip{display:inline-block;font-size:11px;font-weight:600;color:var(--text3);background:var(--s3);padding:3px 8px;border-radius:6px;white-space:nowrap}
 .minstock-wrap{display:flex;align-items:center;gap:6px}.minstock-wrap input{width:60px;min-height:36px;padding:4px 8px;font-size:12px}
@@ -1049,9 +1052,9 @@ function renderAnalytics(){
       '<button class="period-tab'+(analyticsRange.mode==='30d'?' active':'')+'" onclick="setDashboardRange(\'30d\')">30 дней</button>'+
       '<button class="period-tab'+(analyticsRange.mode==='custom'?' active':'')+'" onclick="setDashboardRange(\'custom\')">Период</button>'+
     '</div>'+
-    '<div style="display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap">'+
-      '<input type="date" value="'+(analyticsRange.from||'')+'" onchange="setDashboardCustom(0,this.value)" style="'+(analyticsRange.mode==='custom'?'':'opacity:.6')+'">'+
-      '<input type="date" value="'+(analyticsRange.to||'')+'" onchange="setDashboardCustom(1,this.value)" style="'+(analyticsRange.mode==='custom'?'':'opacity:.6')+'">'+
+    '<div class="analytics-date-wrap">'+
+      '<input type="date" class="analytics-date-input'+(analyticsRange.mode==='custom'?' active':'')+'" value="'+(analyticsRange.from||'')+'" onchange="setDashboardCustom(0,this.value)">'+
+      '<input type="date" class="analytics-date-input'+(analyticsRange.mode==='custom'?' active':'')+'" value="'+(analyticsRange.to||'')+'" onchange="setDashboardCustom(1,this.value)">'+
       '<span style="font-size:11px;color:var(--text3)">'+rangeLabel()+'</span>'+
     '</div>';
   main.appendChild(periodDiv);
