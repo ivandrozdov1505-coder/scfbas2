@@ -517,9 +517,6 @@ var sortCol='', sortDir='asc';
 var selectedColor='#00ffb3';
 var currentTheme='dark';
 var PALETTE=['#00ffb3','#4d9fff','#b47aff','#ffd84d','#ff3d6b','#ff9f4d','#4dffd4','#ff4dbd'];
-var analyticsPeriod='all';
-var analyticsMonth=new Date().getMonth();
-var analyticsYear=new Date().getFullYear();
 var discountType='currency'; // 'currency' | 'percent'
 var quickSellProdId=null;
 var analyticsRange={mode:'30d',from:'',to:''}; // today|7d|30d|custom
@@ -1021,24 +1018,70 @@ function renderTable(list,t){
 // ══════════════════════════════════════════════════════
 // ANALYTICS TAB
 // ══════════════════════════════════════════════════════
-function saleInSelectedRange(s){
-  var d=parseISO(s.date);if(!d)return false;
-  var today=parseISO(isoToday());
-  if(analyticsRange.mode==='today')return s.date===isoToday();
+function formatAnalyticsDate(iso){
+  var d=parseISO(iso);if(!d)return '';
+  return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear();
+}
+function toISODateLocal(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function shiftISODate(iso,delta){
+  var d=parseISO(iso);if(!d)return '';
+  d.setDate(d.getDate()+delta);
+  return toISODateLocal(d);
+}
+function getDateRangeDays(from,to){
+  var fromD=parseISO(from),toD=parseISO(to);
+  if(!fromD||!toD)return 0;
+  return Math.round((toD-fromD)/86400000)+1;
+}
+function getAnalyticsRangeMeta(){
+  var today=isoToday();
+  if(analyticsRange.mode==='today'){
+    return {mode:'today',from:today,to:today,days:1,bounded:true,label:'Сегодня'};
+  }
   if(analyticsRange.mode==='7d' || analyticsRange.mode==='30d'){
     var days=analyticsRange.mode==='7d'?7:30;
-    var from=new Date(today);from.setDate(from.getDate()-(days-1));
-    return d>=from&&d<=today;
+    return {mode:analyticsRange.mode,from:shiftISODate(today,-(days-1)),to:today,days:days,bounded:true,label:days===7?'Последние 7 дней':'Последние 30 дней'};
   }
-  var fromC=parseISO(analyticsRange.from),toC=parseISO(analyticsRange.to);
+  var from=analyticsRange.from,to=analyticsRange.to;
+  var fromD=parseISO(from),toD=parseISO(to);
+  if(!fromD||!toD){
+    return {mode:'custom',from:'',to:'',days:0,bounded:false,label:'Все даты (период не задан)'};
+  }
+  if(fromD>toD){var tmp=from;from=to;to=tmp;}
+  return {mode:'custom',from:from,to:to,days:getDateRangeDays(from,to),bounded:true,label:from===to?formatAnalyticsDate(from):formatAnalyticsDate(from)+' — '+formatAnalyticsDate(to)};
+}
+function getPreviousAnalyticsRangeMeta(rangeMeta){
+  if(!rangeMeta||!rangeMeta.bounded)return null;
+  if(rangeMeta.mode==='today'){
+    var prevDay=shiftISODate(rangeMeta.from,-1);
+    return {from:prevDay,to:prevDay,days:1,bounded:true,label:'Вчера'};
+  }
+  if(rangeMeta.mode==='7d' || rangeMeta.mode==='30d'){
+    return {from:shiftISODate(rangeMeta.from,-rangeMeta.days),to:shiftISODate(rangeMeta.from,-1),days:rangeMeta.days,bounded:true,label:'Предыдущие '+rangeMeta.days+' дней'};
+  }
+  if(rangeMeta.mode==='custom' && rangeMeta.from && rangeMeta.to){
+    return {from:shiftISODate(rangeMeta.from,-rangeMeta.days),to:shiftISODate(rangeMeta.from,-1),days:rangeMeta.days,bounded:true,label:rangeMeta.days===1?'Предыдущий день':'Предыдущий период'};
+  }
+  return null;
+}
+function saleInRangeBounds(s,from,to){
+  var d=parseISO(s.date);if(!d)return false;
+  var fromC=parseISO(from),toC=parseISO(to);
   if(!fromC||!toC)return true;
   if(fromC>toC){var tmp=fromC;fromC=toC;toC=tmp;}
   return d>=fromC&&d<=toC;
+}
+function saleInSelectedRange(s){
+  var rangeMeta=getAnalyticsRangeMeta();
+  return saleInRangeBounds(s,rangeMeta.from,rangeMeta.to);
 }
 function renderAnalytics(){
   $('page-title').textContent='Аналитика';
   $('page-sub').textContent='Графики и статистика';
   var main=$('main');
+  var rangeMeta=getAnalyticsRangeMeta();
 
   if(!localStorage.getItem('hide-tip-analytics')){
     var tip=document.createElement('div');tip.className='info-banner anim';
@@ -1046,14 +1089,10 @@ function renderAnalytics(){
     main.appendChild(tip);
   }
 
-  // ── PERIOD SELECTOR ──
-  var MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  // ── RANGE SELECTOR ──
   var periodDiv=document.createElement('div');
   periodDiv.className='anim';
   periodDiv.style.cssText='display:flex;align-items:center;gap:16px;flex-wrap:wrap';
-  var periodLabel='';
-  if(analyticsPeriod==='month') periodLabel=MONTHS[analyticsMonth]+' '+analyticsYear;
-  else if(analyticsPeriod==='year') periodLabel=String(analyticsYear);
   periodDiv.innerHTML=
     '<div class="period-tabs" style="margin-right:4px">'+
       '<button class="period-tab'+(analyticsRange.mode==='today'?' active':'')+'" onclick="setDashboardRange(\'today\')">Сегодня</button>'+
@@ -1061,60 +1100,48 @@ function renderAnalytics(){
       '<button class="period-tab'+(analyticsRange.mode==='30d'?' active':'')+'" onclick="setDashboardRange(\'30d\')">30 дней</button>'+
       '<button class="period-tab'+(analyticsRange.mode==='custom'?' active':'')+'" onclick="setDashboardRange(\'custom\')">Период</button>'+
     '</div>'+
-    '<div class="period-tabs">'+
-      '<button class="period-tab'+(analyticsPeriod==='all'?' active':'')+'" onclick="setPeriod(\'all\')">Всё время</button>'+
-      '<button class="period-tab'+(analyticsPeriod==='month'?' active':'')+'" onclick="setPeriod(\'month\')">Месяц</button>'+
-      '<button class="period-tab'+(analyticsPeriod==='year'?' active':'')+'" onclick="setPeriod(\'year\')">Год</button>'+
-    '</div>'+
-    (analyticsPeriod!=='all'?
-      '<div class="period-nav">'+
-        '<button class="period-nav-btn" onclick="shiftPeriod(-1)">‹</button>'+
-        '<div class="period-label">'+periodLabel+'</div>'+
-        '<button class="period-nav-btn" onclick="shiftPeriod(1)">›</button>'+
-      '</div>':''
-    )+
+    '<div class="period-nav"><div class="period-label">'+rangeMeta.label+'</div></div>'+
     '<div class="analytics-date-wrap">'+
       '<input type="date" class="analytics-date-input'+(analyticsRange.mode==='custom'?' active':'')+'" value="'+(analyticsRange.from||'')+'" onchange="setDashboardCustom(0,this.value)">'+
       '<input type="date" class="analytics-date-input'+(analyticsRange.mode==='custom'?' active':'')+'" value="'+(analyticsRange.to||'')+'" onchange="setDashboardCustom(1,this.value)">'+
     '</div>';
   main.appendChild(periodDiv);
 
-  // ── FILTER SALES BY PERIOD ──
-  var filteredSales=sales.filter(function(s){
-    if(!saleInSelectedRange(s))return false;
-    if(analyticsPeriod==='all') return true;
-    var d=new Date(s.date);
-    if(analyticsPeriod==='year') return d.getFullYear()===analyticsYear;
-    return d.getFullYear()===analyticsYear && d.getMonth()===analyticsMonth;
-  });
+  // ── FILTER SALES BY RANGE ──
+  var filteredSales=sales.filter(function(s){return saleInSelectedRange(s);});
 
   // Stat cards from filtered sales
-  var salesRev=0,salesProfit=0,salesQty=0;
+  var salesRev=0,salesProfit=0,salesQty=0,actualProfit=0;
+  var salesByDate={},salesByMonthKey={};
   filteredSales.forEach(function(s){
     var p=productById(s.productId);if(!p)return;
-    salesRev+=s.qty*s.price;
-    salesProfit+=getActualProfitForSale(s,p);
-    salesQty+=s.qty;
+    var revenue=(Number(s.qty)||0)*(Number(s.price)||0);
+    var profit=getActualProfitForSale(s,p);
+    salesRev+=revenue;
+    salesProfit+=profit;
+    salesQty+=Number(s.qty)||0;
+    actualProfit+=typeof s.profitAtSale==='number'?s.profitAtSale:profit;
+    if(!salesByDate[s.date])salesByDate[s.date]={rev:0,profit:0,cnt:0};
+    salesByDate[s.date].rev+=revenue;
+    salesByDate[s.date].profit+=profit;
+    salesByDate[s.date].cnt++;
+    var monthKey=s.date.slice(0,7);
+    if(!salesByMonthKey[monthKey])salesByMonthKey[monthKey]={rev:0,profit:0,cnt:0};
+    salesByMonthKey[monthKey].rev+=revenue;
+    salesByMonthKey[monthKey].profit+=profit;
+    salesByMonthKey[monthKey].cnt++;
   });
 
   var allT=calcFor(products);
   var purchaseInRange=purchases.filter(function(pu){return saleInSelectedRange({date:pu.date});});
   var purchaseExpenses=purchaseInRange.reduce(function(sum,pu){return sum+(pu.qty*pu.price);},0);
-  var expensesInRange=getHistoryExpenses(analyticsPeriod==='all').filter(function(ex){return ex.date&&saleInSelectedRange({date:ex.date});});
+  var expensesInRange=getHistoryExpenses(false).filter(function(ex){return ex.date&&saleInSelectedRange({date:ex.date});});
   var periodExpenses=expensesInRange.reduce(function(sum,ex){return sum+(Number(ex.amount)||0);},0);
   var potentialProfit=products.reduce(function(sum,p){return sum+((p.retail-p.wholesale)*(p.stock||0));},0);
-  var actualProfit=salesRev?0:0;
-  filteredSales.forEach(function(s){actualProfit+=typeof s.profitAtSale==='number'?s.profitAtSale:getActualProfitForSale(s,productById(s.productId));});
 
   // ── PERIOD COMPARISON ──
-  var prevSales=[];
-  if(analyticsPeriod==='month'){
-    var pm=analyticsMonth-1, py=analyticsYear;
-    if(pm<0){pm=11;py--;}
-    prevSales=sales.filter(function(s){var d=new Date(s.date);return d.getFullYear()===py&&d.getMonth()===pm;});
-  } else if(analyticsPeriod==='year'){
-    prevSales=sales.filter(function(s){var d=new Date(s.date);return d.getFullYear()===analyticsYear-1;});
-  }
+  var prevRangeMeta=getPreviousAnalyticsRangeMeta(rangeMeta);
+  var prevSales=prevRangeMeta?sales.filter(function(s){return saleInRangeBounds(s,prevRangeMeta.from,prevRangeMeta.to);}):[];
   var prevRev=0,prevProfit=0;
   prevSales.forEach(function(s){var p=productById(s.productId);if(!p)return;prevRev+=s.qty*s.price;prevProfit+=getActualProfitForSale(s,p);});
   var revDelta=prevRev>0?Math.round((salesRev-prevRev)/prevRev*100):null;
@@ -1165,51 +1192,57 @@ function renderAnalytics(){
     '<div class="sc '+(allT.profit>=0?'green':'red')+'"><div class="sc-icon">💼</div><div class="sc-label">Маржа каталога</div><div class="sc-val">'+(allT.rev>0?Math.round(allT.profit/allT.rev*100):0)+'%</div><div class="sc-sub">Расчётная по каталогу</div></div>';
   main.appendChild(avgRow);
 
-  // ── DAILY CHART (month view only) ──
-  if(analyticsPeriod==='month'){
-    var daysInMonth=new Date(analyticsYear,analyticsMonth+1,0).getDate();
+  // ── DAILY CHART ──
+  if(rangeMeta.bounded){
     var dailyData=[];
-    for(var dd=1;dd<=daysInMonth;dd++){
-      var iso2=analyticsYear+'-'+String(analyticsMonth+1).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
-      var ds=filteredSales.filter(function(s){return s.date===iso2;});
-      var dr=0,dp=0;
-      ds.forEach(function(s){var p=productById(s.productId);if(!p)return;dr+=s.qty*s.price;dp+=getActualProfitForSale(s,p);});
-      dailyData.push({day:dd,rev:dr,profit:dp,cnt:ds.length});
+    var cursor=parseISO(rangeMeta.from),rangeEnd=parseISO(rangeMeta.to);
+    while(cursor&&rangeEnd&&cursor<=rangeEnd){
+      var isoDay=toISODateLocal(cursor);
+      var dayBucket=salesByDate[isoDay]||{rev:0,profit:0,cnt:0};
+      dailyData.push({label:String(cursor.getDate()).padStart(2,'0')+'.'+String(cursor.getMonth()+1).padStart(2,'0'),rev:dayBucket.rev,profit:dayBucket.profit,cnt:dayBucket.cnt});
+      cursor.setDate(cursor.getDate()+1);
     }
-    var maxDV=1;dailyData.forEach(function(d){if(Math.abs(d.profit)>maxDV)maxDV=Math.abs(d.profit);if(d.rev>maxDV)maxDV=d.rev;});
-    var dbw=Math.max(8,Math.floor(560/daysInMonth)-3),dgap=3,dchH=100;
-    var dSVG='<svg viewBox="0 0 '+(daysInMonth*(dbw+dgap)+20)+' '+(dchH+28)+'" xmlns="http://www.w3.org/2000/svg" style="width:100%">';
-    dailyData.forEach(function(md,i){
-      var x=i*(dbw+dgap)+6;
-      var revH=Math.round(md.rev/maxDV*dchH);
-      var proH=Math.round(Math.abs(md.profit)/maxDV*dchH);
-      var proColor=md.profit>=0?'var(--green)':'var(--red)';
-      dSVG+='<rect x="'+x+'" y="'+(dchH-revH)+'" width="'+dbw+'" height="'+revH+'" rx="3" fill="var(--blue)" opacity="0.25"/>'+
-            '<rect x="'+(x+1)+'" y="'+(dchH-proH)+'" width="'+(dbw-2)+'" height="'+proH+'" rx="2" fill="'+proColor+'" opacity="0.9"/>';
-      if(md.cnt>0)dSVG+='<circle cx="'+(x+dbw/2)+'" cy="'+(dchH-proH-5)+'" r="2" fill="'+proColor+'"/>';
-      if(i%5===0||md.day===1||md.day===daysInMonth)dSVG+='<text x="'+(x+dbw/2)+'" y="'+(dchH+16)+'" text-anchor="middle" fill="var(--text3)" font-size="9" font-family="system-ui">'+md.day+'</text>';
-    });
-    dSVG+='</svg>';
-    var dayCard=document.createElement('div');dayCard.className='chart-card anim';
-    dayCard.innerHTML='<div class="chart-title">Продажи по дням — '+MONTHS[analyticsMonth]+' '+analyticsYear+'</div><div class="chart-sub">Синий — выручка, цветной — прибыль · точка = была продажа</div><div class="chart-area">'+dSVG+'</div>';
-    main.appendChild(dayCard);
+    if(dailyData.length>0){
+      var maxDV=1;dailyData.forEach(function(d){if(Math.abs(d.profit)>maxDV)maxDV=Math.abs(d.profit);if(d.rev>maxDV)maxDV=d.rev;});
+      var labelStep=dailyData.length<=7?1:dailyData.length<=14?2:dailyData.length<=31?5:dailyData.length<=62?7:14;
+      var dbw=Math.min(24,Math.max(dailyData.length>45?4:6,Math.floor(560/Math.max(dailyData.length,1))-3)),dgap=dailyData.length>45?2:3,dchH=100;
+      var dSVG='<svg viewBox="0 0 '+(dailyData.length*(dbw+dgap)+20)+' '+(dchH+28)+'" xmlns="http://www.w3.org/2000/svg" style="width:100%">';
+      dailyData.forEach(function(md,i){
+        var x=i*(dbw+dgap)+6;
+        var revH=Math.round(md.rev/maxDV*dchH);
+        var proH=Math.round(Math.abs(md.profit)/maxDV*dchH);
+        var proColor=md.profit>=0?'var(--green)':'var(--red)';
+        dSVG+='<rect x="'+x+'" y="'+(dchH-revH)+'" width="'+dbw+'" height="'+revH+'" rx="3" fill="var(--blue)" opacity="0.25"/>'+
+              '<rect x="'+(x+1)+'" y="'+(dchH-proH)+'" width="'+Math.max(1,dbw-2)+'" height="'+proH+'" rx="2" fill="'+proColor+'" opacity="0.9"/>';
+        if(md.cnt>0)dSVG+='<circle cx="'+(x+dbw/2)+'" cy="'+(dchH-proH-5)+'" r="2" fill="'+proColor+'"/>';
+        if(i%labelStep===0||i===0||i===dailyData.length-1)dSVG+='<text x="'+(x+dbw/2)+'" y="'+(dchH+16)+'" text-anchor="middle" fill="var(--text3)" font-size="9" font-family="system-ui">'+md.label+'</text>';
+      });
+      dSVG+='</svg>';
+      var dayCard=document.createElement('div');dayCard.className='chart-card anim';
+      dayCard.innerHTML='<div class="chart-title">Продажи по дням — '+rangeMeta.label+'</div><div class="chart-sub">Синий — выручка, цветной — прибыль · точка = была продажа</div><div class="chart-area">'+dSVG+'</div>';
+      main.appendChild(dayCard);
+    }
   }
 
-  // ── SALES BY MONTH CHART (bar chart) ──
-  if(analyticsPeriod==='year' || analyticsPeriod==='all'){
-    var MONTHS_SHORT=['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
-    var year=analyticsPeriod==='year'?analyticsYear:analyticsYear;
-    // collect monthly data for the selected year (or current year for 'all')
-    var displayYear=analyticsPeriod==='year'?analyticsYear:new Date().getFullYear();
-    var monthly=[];
-    for(var m=0;m<12;m++){
-      var ms=sales.filter(function(s){var d=new Date(s.date);return d.getFullYear()===displayYear&&d.getMonth()===m;});
-      var mr=0,mp=0;
-      ms.forEach(function(s){var p=productById(s.productId);if(!p)return;mr+=s.qty*s.price;mp+=getActualProfitForSale(s,p);});
-      monthly.push({month:m,rev:mr,profit:mp,cnt:ms.length});
+  // ── SALES BY MONTH CHART ──
+  var MONTHS_SHORT=['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+  var monthly=[];
+  if(rangeMeta.bounded){
+    var monthCursor=parseISO(rangeMeta.from),monthEnd=parseISO(rangeMeta.to);
+    if(monthCursor&&monthEnd){
+      monthCursor.setDate(1);
+      monthEnd.setDate(1);
+      while(monthCursor<=monthEnd){
+        var monthKey=monthCursor.getFullYear()+'-'+String(monthCursor.getMonth()+1).padStart(2,'0');
+        var monthBucket=salesByMonthKey[monthKey]||{rev:0,profit:0,cnt:0};
+        monthly.push({label:MONTHS_SHORT[monthCursor.getMonth()]+' '+String(monthCursor.getFullYear()).slice(-2),rev:monthBucket.rev,profit:monthBucket.profit,cnt:monthBucket.cnt});
+        monthCursor.setMonth(monthCursor.getMonth()+1);
+      }
     }
+  }
+  if(monthly.length>1){
     var maxVal=1;monthly.forEach(function(m){if(Math.abs(m.profit)>maxVal)maxVal=Math.abs(m.profit);if(m.rev>maxVal)maxVal=m.rev;});
-    var bw=28,gap=8,chartW=12*(bw+gap),chartH=140;
+    var bw=28,gap=8,chartW=monthly.length*(bw+gap),chartH=140;
     var barsSVG='<svg viewBox="0 0 '+(chartW+60)+' '+(chartH+30)+'" xmlns="http://www.w3.org/2000/svg" style="width:100%">';
     monthly.forEach(function(md,i){
       var x=i*(bw+gap)+30;
@@ -1218,11 +1251,11 @@ function renderAnalytics(){
       var proColor=md.profit>=0?'var(--green)':'var(--red)';
       barsSVG+='<rect x="'+x+'" y="'+(chartH-revH)+'" width="'+bw+'" height="'+revH+'" rx="4" fill="var(--blue)" opacity="0.3"/>'+
                '<rect x="'+(x+4)+'" y="'+(chartH-proH)+'" width="'+(bw-8)+'" height="'+proH+'" rx="3" fill="'+proColor+'" opacity="0.85"/>'+
-               '<text x="'+(x+bw/2)+'" y="'+(chartH+16)+'" text-anchor="middle" fill="var(--text3)" font-size="9" font-family="system-ui">'+MONTHS_SHORT[i]+'</text>';
+               '<text x="'+(x+bw/2)+'" y="'+(chartH+16)+'" text-anchor="middle" fill="var(--text3)" font-size="9" font-family="system-ui">'+md.label+'</text>';
     });
     barsSVG+='</svg>';
     var monthCard=document.createElement('div');monthCard.className='chart-card anim';
-    monthCard.innerHTML='<div class="chart-title">Продажи по месяцам — '+displayYear+'</div><div class="chart-sub">Синий — выручка, цветной — прибыль</div><div class="chart-area">'+barsSVG+'</div>';
+    monthCard.innerHTML='<div class="chart-title">Продажи по месяцам — '+rangeMeta.label+'</div><div class="chart-sub">Синий — выручка, цветной — прибыль · только выбранный диапазон</div><div class="chart-area">'+barsSVG+'</div>';
     main.appendChild(monthCard);
   }
 
@@ -1239,7 +1272,7 @@ function renderAnalytics(){
   });
   var topSales=Object.values(prodSalesMap).sort(function(a,b){return b.profit-a.profit;}).slice(0,5);
   var maxPrS=topSales.length>0?Math.max(1,Math.abs(topSales[0].profit)):1;
-  var topSubLabel=analyticsPeriod==='all'?'Всё время':analyticsPeriod==='month'?MONTHS[analyticsMonth]+' '+analyticsYear:String(analyticsYear);
+  var topSubLabel=rangeMeta.label;
   var topHTML='<div class="chart-title">Топ по прибыли — реальные продажи</div><div class="chart-sub">'+topSubLabel+'</div><div class="top-list">';
   if(topSales.length===0){topHTML+='<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px">Нет продаж за период</div>';}
   else{topSales.forEach(function(item,i){var pct=Math.max(4,Math.abs(item.profit)/maxPrS*100);var col=item.profit>=0?'var(--green)':'var(--red)';topHTML+='<div class="top-item"><div class="top-rank'+(i===0?' gold':'')+'">'+( i===0?'🥇':i+1)+'</div><div class="top-name" title="'+esc(item.p.name)+'">'+esc(item.p.name)+'</div><div style="font-size:10px;color:var(--text3);flex-shrink:0;min-width:40px">'+item.qty+' шт</div><div class="top-bar-wrap"><div class="top-bar" style="width:'+pct+'%;background:'+col+'"></div></div><div class="top-val" style="color:'+col+'">'+(item.profit>=0?'+':'−')+'₽'+fmt(Math.abs(item.profit))+'</div></div>';});}
@@ -1267,31 +1300,16 @@ function renderAnalytics(){
   var svgBar='<svg viewBox="0 0 500 '+cH+'" xmlns="http://www.w3.org/2000/svg">'+barsHTML+'</svg>';
   var svgDonut=buildDonut(folderStats.map(function(s){return{name:s.f.name,val:s.t.rev,color:s.f.color};}));
   grid.innerHTML=
-    '<div class="chart-card"><div class="chart-title">Прибыль по папкам</div><div class="chart-sub">Факт по продажам и расходам периода</div><div class="chart-area">'+svgBar+'</div></div>'+
-    '<div class="chart-card"><div class="chart-title">Выручка по папкам</div><div class="chart-sub">Доля выручки продаж периода</div><div class="chart-area" style="display:flex;gap:20px;align-items:center">'+svgDonut+'<div style="display:flex;flex-direction:column;gap:8px;flex:1">'+folderStats.map(function(s){return'<div style="display:flex;align-items:center;gap:8px;font-size:12px"><div style="width:10px;height:10px;border-radius:3px;background:'+s.f.color+';flex-shrink:0"></div><span style="flex:1;color:var(--text2)">'+esc(s.f.name)+'</span><span style="font-weight:700;color:var(--text)">'+Math.round(s.t.rev/total2*100)+'%</span></div>';}).join('')+'</div></div></div>';
+    '<div class="chart-card"><div class="chart-title">Прибыль по папкам</div><div class="chart-sub">'+rangeMeta.label+' · факт по продажам и расходам</div><div class="chart-area">'+svgBar+'</div></div>'+
+    '<div class="chart-card"><div class="chart-title">Выручка по папкам</div><div class="chart-sub">'+rangeMeta.label+' · доля выручки продаж</div><div class="chart-area" style="display:flex;gap:20px;align-items:center">'+svgDonut+'<div style="display:flex;flex-direction:column;gap:8px;flex:1">'+folderStats.map(function(s){return'<div style="display:flex;align-items:center;gap:8px;font-size:12px"><div style="width:10px;height:10px;border-radius:3px;background:'+s.f.color+';flex-shrink:0"></div><span style="flex:1;color:var(--text2)">'+esc(s.f.name)+'</span><span style="font-weight:700;color:var(--text)">'+Math.round(s.t.rev/total2*100)+'%</span></div>';}).join('')+'</div></div></div>';
   main.appendChild(grid);
 }
 
-function setPeriod(p){
-  analyticsPeriod=p;
-  analyticsYear=new Date().getFullYear();
-  analyticsMonth=new Date().getMonth();
-  render();
-}
-function shiftPeriod(dir){
-  if(analyticsPeriod==='month'){
-    analyticsMonth+=dir;
-    if(analyticsMonth<0){analyticsMonth=11;analyticsYear--;}
-    if(analyticsMonth>11){analyticsMonth=0;analyticsYear++;}
-  } else if(analyticsPeriod==='year'){
-    analyticsYear+=dir;
-  }
-  render();
-}
 function setDashboardRange(mode){
   analyticsRange.mode=mode;
   if(mode==='today'){analyticsRange.from=isoToday();analyticsRange.to=isoToday();}
   if(mode==='7d' || mode==='30d'){analyticsRange.from='';analyticsRange.to='';}
+  persist();
   render();
 }
 function setDashboardCustom(idx,val){
