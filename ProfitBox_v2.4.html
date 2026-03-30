@@ -1093,6 +1093,13 @@ function renderAnalytics(){
   var periodDiv=document.createElement('div');
   periodDiv.className='anim';
   periodDiv.style.cssText='display:flex;align-items:center;gap:16px;flex-wrap:wrap';
+  // Поля дат показываем только для ручного периода.
+  var showCustomDateInputs=analyticsRange.mode==='custom';
+  var customDateWrapHTML=showCustomDateInputs?
+    '<div class="analytics-date-wrap">'+
+      '<input type="date" class="analytics-date-input active" value="'+(analyticsRange.from||'')+'" onchange="setDashboardCustom(0,this.value)">'+
+      '<input type="date" class="analytics-date-input active" value="'+(analyticsRange.to||'')+'" onchange="setDashboardCustom(1,this.value)">'+
+    '</div>':'';
   periodDiv.innerHTML=
     '<div class="period-tabs" style="margin-right:4px">'+
       '<button class="period-tab'+(analyticsRange.mode==='today'?' active':'')+'" onclick="setDashboardRange(\'today\')">Сегодня</button>'+
@@ -1100,11 +1107,8 @@ function renderAnalytics(){
       '<button class="period-tab'+(analyticsRange.mode==='30d'?' active':'')+'" onclick="setDashboardRange(\'30d\')">30 дней</button>'+
       '<button class="period-tab'+(analyticsRange.mode==='custom'?' active':'')+'" onclick="setDashboardRange(\'custom\')">Период</button>'+
     '</div>'+
-    '<div class="period-nav"><div class="period-label">'+rangeMeta.label+'</div></div>'+
-    '<div class="analytics-date-wrap">'+
-      '<input type="date" class="analytics-date-input'+(analyticsRange.mode==='custom'?' active':'')+'" value="'+(analyticsRange.from||'')+'" onchange="setDashboardCustom(0,this.value)">'+
-      '<input type="date" class="analytics-date-input'+(analyticsRange.mode==='custom'?' active':'')+'" value="'+(analyticsRange.to||'')+'" onchange="setDashboardCustom(1,this.value)">'+
-    '</div>';
+    '<div class="period-nav"'+(showCustomDateInputs?'':' style="margin-left:auto"')+'><div class="period-label">'+rangeMeta.label+'</div></div>'+
+    customDateWrapHTML;
   main.appendChild(periodDiv);
 
   // ── FILTER SALES BY RANGE ──
@@ -1307,8 +1311,6 @@ function renderAnalytics(){
 
 function setDashboardRange(mode){
   analyticsRange.mode=mode;
-  if(mode==='today'){analyticsRange.from=isoToday();analyticsRange.to=isoToday();}
-  if(mode==='7d' || mode==='30d'){analyticsRange.from='';analyticsRange.to='';}
   persist();
   render();
 }
