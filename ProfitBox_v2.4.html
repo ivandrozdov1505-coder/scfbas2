@@ -29,6 +29,12 @@ body.theme-sunset{--bg:#15070a;--s1:#21100f;--s2:#2f1813;--s3:#3e2318;--border:#
 html,body{width:100%;max-width:100%;overflow-x:hidden}
 body{background:var(--bg);color:var(--text);font-family:-apple-system,'Segoe UI',system-ui,sans-serif;min-height:100vh}
 body::before{content:'';position:fixed;top:-40vh;left:-20vw;width:70vw;height:70vh;background:radial-gradient(ellipse,rgba(0,200,150,.04) 0%,transparent 72%);pointer-events:none;z-index:0}
+*{scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--s3),var(--border2));border-radius:999px;border:2px solid var(--bg)}
+*::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,var(--border2),var(--blue))}
+*::-webkit-scrollbar-corner{background:transparent}
 #app,#content,#main,#sidebar,.tw,.hist-list,.stock-card,.toolbar,.form-wrap,.hist-form,.chart-card,.analytics-grid{width:100%;max-width:100%;min-width:0}
 #app{display:block;min-height:100vh;position:relative}
 #content{display:flex;flex-direction:column;position:relative;z-index:1}
@@ -57,20 +63,24 @@ body.fullscreen #toggle-sidebar-btn .ic::before{content:'▶'}
 .topbar-r>.btn:nth-child(1),.topbar-r>.btn:nth-child(2){display:inline-flex;min-height:42px;padding:10px 12px}
 .topbar-more{position:relative}
 .topbar-more-toggle{min-width:42px;min-height:42px;font-size:20px;line-height:1;padding:0 10px}
-.topbar-more-menu{display:none;position:absolute;right:0;top:calc(100% + 8px);width:min(300px,92vw);background:var(--s1);border:1px solid var(--border2);border-radius:12px;padding:10px;box-shadow:0 10px 22px rgba(0,0,0,.35);flex-direction:column;gap:8px}
+.topbar-more-menu{display:none;position:absolute;right:0;top:calc(100% + 8px);width:min(320px,92vw);background:linear-gradient(180deg,var(--s1),var(--s2));border:1px solid var(--border2);border-radius:14px;padding:12px;box-shadow:0 18px 38px rgba(0,0,0,.42);flex-direction:column;gap:8px}
 .topbar-more:hover .topbar-more-menu,.topbar-more:focus-within .topbar-more-menu{display:flex}
 .topbar-more-group{display:flex;flex-wrap:wrap;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--border)}
-.topbar-more-menu .btn{width:100%;justify-content:flex-start;min-height:42px}
+.topbar-more-menu .btn{width:100%;justify-content:flex-start;min-height:42px;padding:10px 12px;border-radius:10px}
 .flash{display:none}
 
 /* COMPONENTS */
 .btn{border:none;border-radius:9px;padding:9px 14px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:all .15s}
 .btn-ghost{background:var(--s3);color:var(--text2);border:1px solid var(--border2)}
 .btn-ghost:hover{background:var(--s2);color:var(--text)}
+.btn:focus-visible{outline:2px solid rgba(77,159,255,.72);outline-offset:2px}
 .btn-primary{background:linear-gradient(135deg,var(--green),var(--green2));color:#000;font-weight:700}
 .btn-warn{background:linear-gradient(135deg,var(--yellow),#e6b800);color:#000;font-weight:700}
 .btn-blue{background:linear-gradient(135deg,var(--blue),#2a7fe0);color:#fff;font-weight:700}
 .btn-danger{background:transparent;color:var(--red);border:1px solid rgba(255,61,107,.25);padding:6px 10px;font-size:11px}
+.utility-btn{width:100%;justify-content:center;min-height:40px;padding:9px 12px;border-radius:10px;font-size:11px;letter-spacing:.01em}
+.utility-btn--inline{width:auto;min-height:40px;justify-content:center}
+.utility-upload{cursor:pointer}
 
 .sb-logo{padding:16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
 .logo-mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--green),var(--blue));display:flex;align-items:center;justify-content:center;color:#000;font-weight:900}
@@ -92,6 +102,7 @@ body.fullscreen #toggle-sidebar-btn .ic::before{content:'▶'}
 .sb-add-folder{padding:10px;border:1px dashed var(--border2);background:transparent;color:var(--text3);text-align:left;cursor:pointer}
 .sb-stats{margin-top:auto;padding:14px;border-top:1px solid var(--border);font-size:11px;color:var(--text3)}
 .sb-stats-row{display:flex;justify-content:space-between;margin-bottom:5px}.sb-stats-row span{color:var(--text2)}
+.sb-stats-actions{display:grid;gap:8px;margin-top:12px}
 
 .sg{display:grid;grid-template-columns:1fr;gap:10px}
 .sc{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px}
@@ -179,17 +190,20 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 .stock-off{background:var(--s3);color:var(--text2)}
 
 
-.sync-box{margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--s2);display:flex;flex-direction:column;gap:8px}
-.sync-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.sync-title{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3)}
-.sync-pill{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;border:1px solid var(--border2);color:var(--text2)}
+.sync-box{margin-top:14px;padding:14px;border:1px solid var(--border2);border-radius:14px;background:linear-gradient(180deg,var(--s2),var(--s1));display:flex;flex-direction:column;gap:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,.02)}
+.sync-head{display:grid;gap:8px}
+.sync-head-main{display:grid;gap:4px;min-width:0}
+.sync-title{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)}
+.sync-kicker{font-size:13px;font-weight:700;color:var(--text);line-height:1.25}
+.sync-pill{width:fit-content;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;border:1px solid var(--border2);color:var(--text2)}
 .sync-pill.on{color:var(--green);border-color:rgba(0,255,179,.35);background:var(--greendim)}
 .sync-status{font-size:11px;color:var(--text2);line-height:1.3}
 .sync-status.state-ok{color:var(--green)}.sync-status.state-err{color:var(--red)}.sync-status.state-warn{color:var(--yellow)}
-.sync-muted{font-size:10px;color:var(--text3)}
-.sync-row{display:flex;gap:6px;flex-wrap:wrap}
-.sync-row .btn{flex:1;min-height:38px;justify-content:center;padding:8px 9px;font-size:11px}
-.sync-input{min-height:36px;font-size:12px;padding:8px 10px}
+.sync-muted{font-size:10px;color:var(--text3);line-height:1.45}
+.sync-row{display:grid;grid-template-columns:1fr;gap:8px}
+.sync-row .btn{width:100%;min-height:40px;justify-content:center;padding:9px 10px;font-size:11px;white-space:normal;line-height:1.25;text-align:center}
+.sync-input{min-height:40px;font-size:12px;padding:9px 11px;border:1px solid var(--border2);border-radius:10px}
+.sync-help-btn{margin-top:-2px}
 .sync-check{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text2)}
 .sync-check input{accent-color:var(--green)}
 .sync-modal-note{font-size:12px;color:var(--text2);margin:6px 0 14px;line-height:1.4}
@@ -234,7 +248,7 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
 .modal-overlay.show{opacity:1;pointer-events:all}
-.modal,.backup-box,.docs-box{background:var(--s1);border:1px solid var(--border2);border-radius:16px;padding:20px;width:min(96vw,760px);max-height:86vh;overflow-y:auto}
+.modal,.backup-box,.docs-box{background:linear-gradient(180deg,var(--s1),var(--s2));border:1px solid var(--border2);border-radius:18px;padding:20px;width:min(96vw,760px);max-height:86vh;overflow-y:auto;box-shadow:0 22px 46px rgba(0,0,0,.44)}
 .modal{max-width:92vw}
 .backup-item{display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--s2);border:1px solid var(--border);border-radius:10px;margin-bottom:8px}
 .backup-item-info{flex:1;min-width:0}.backup-item-date{font-size:13px;font-weight:600}.backup-item-meta{font-size:11px;color:var(--text3);margin-top:2px}
@@ -243,8 +257,24 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 #backup-modal,#docs-modal{display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);align-items:center;justify-content:center}
 #backup-modal.show,#docs-modal.show{display:flex}
 .theme-btn{width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer;flex-shrink:0}.theme-btn.active{border-color:#fff}
-.docs-title{font-size:18px;font-weight:700}.docs-sub{font-size:12px;color:var(--text3);margin-top:4px;margin-bottom:12px}.docs-content{color:var(--text2);font-size:14px;line-height:1.6}
-.docs-content h3{color:var(--text);font-size:15px;margin:12px 0 8px}.docs-content ul,.docs-content ol{padding-left:20px;margin-bottom:10px}.docs-content li{margin-bottom:5px}
+.modal-title,.docs-title,.dialog-title{font-size:18px;font-weight:700;color:var(--text)}
+.modal-sub,.docs-sub,.dialog-sub{font-size:12px;color:var(--text3);margin-top:4px}
+.modal-label{display:block;margin-bottom:8px;color:var(--text2);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+.dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.dialog-close{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid var(--border2);border-radius:10px;background:var(--s2);color:var(--text3);font-size:18px;cursor:pointer;transition:all .15s}
+.dialog-close:hover{background:var(--s3);color:var(--text)}
+.docs-hidden-note{margin-top:14px;padding:12px 14px;background:var(--s2);border:1px solid var(--border);border-radius:12px;color:var(--text3);font-size:12px;line-height:1.5}
+.docs-hidden-note strong{color:var(--text)}
+.docs-content{color:var(--text2);font-size:14px;line-height:1.65}
+.docs-content h3{color:var(--text);font-size:15px;margin:14px 0 8px}
+.docs-content ul,.docs-content ol{padding-left:20px;margin-bottom:10px}
+.docs-content li{margin-bottom:6px}
+.docs-content a{color:var(--blue);text-decoration:none}
+.docs-content a:hover{text-decoration:underline}
+.docs-content code{padding:2px 6px;background:var(--s2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px}
+.docs-callout{margin:12px 0;padding:12px 14px;background:var(--s2);border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:12px;color:var(--text2)}
+.docs-callout strong{color:var(--text)}
 
 .info-banner{background:var(--s2);border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:12px;padding:12px;display:flex;gap:12px;align-items:flex-start}
 .info-banner-title{font-size:12px;font-weight:700}.info-banner-text{font-size:11px;color:var(--text2);line-height:1.6}
@@ -373,13 +403,15 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 <!-- BACKUP MODAL -->
 <div id="backup-modal">
   <div class="backup-box">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-      <div style="font-size:16px;font-weight:700;color:var(--text)">💾 Резервные копии</div>
-      <button onclick="closeBackupModal()" style="background:transparent;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:2px 6px;border-radius:6px">✕</button>
+    <div class="dialog-head">
+      <div>
+        <div class="dialog-title">💾 Резервные копии</div>
+        <div class="dialog-sub">До 10 копий. Автосохранение каждые 2 часа.</div>
+      </div>
+      <button class="dialog-close" onclick="closeBackupModal()" aria-label="Закрыть резервные копии">✕</button>
     </div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:18px">Хранится до 10 копий. Авто — каждые 2 часа.</div>
     <div style="display:flex;gap:8px;margin-bottom:16px">
-      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="createManualBackup()">＋ Создать сейчас</button>
+      <button class="btn btn-primary utility-btn" onclick="createManualBackup()">＋ Создать сейчас</button>
     </div>
     <div id="backup-list"></div>
   </div>
@@ -388,15 +420,15 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 <!-- DOCUMENTATION MODAL -->
 <div id="docs-modal" onclick="closeDocumentation(event)">
   <div class="docs-box" onclick="event.stopPropagation()">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px">
+    <div class="dialog-head">
       <div>
-        <div class="docs-title">📘 Документация ProfitBox</div>
-        <div class="docs-sub">Инструкция открывается прямо на сайте</div>
+        <div class="docs-title" id="docs-title-text">📘 Руководство ProfitBox</div>
+        <div class="docs-sub" id="docs-sub-text">Короткая инструкция по работе с приложением и синхронизацией.</div>
       </div>
-      <button onclick="closeDocumentation()" style="background:transparent;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:2px 6px;border-radius:6px">✕</button>
+      <button class="dialog-close" onclick="closeDocumentation()" aria-label="Закрыть справку">✕</button>
     </div>
     <div class="docs-content" id="docs-content"></div>
-    <div class="docs-hidden-note">Важно: обновлять эту документацию после каждого нового функционала.</div>
+    <div class="docs-hidden-note" id="docs-note"></div>
   </div>
 </div>
 
@@ -498,24 +530,31 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
       <div class="sb-stats-row">Выручка <span id="sb-rev">₽0</span></div>
       <div class="sb-stats-row">Расходы <span id="sb-exp">₽0</span></div>
       <div class="sb-stats-row">Прибыль <span id="sb-pro" class="g">₽0</span></div>
-      <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
-        <button class="btn btn-ghost" style="font-size:11px;justify-content:center;width:100%;color:var(--yellow)" onclick="openDocumentation()">📘 Документация</button>
-        <button class="btn btn-ghost" style="font-size:11px;justify-content:center;width:100%" onclick="openBackupModal()">🗄 Резервные копии</button>
-        <button class="btn btn-ghost" style="font-size:11px;justify-content:center;width:100%" onclick="doExport()">💾 Сохранить данные</button>
-        <button class="btn btn-ghost" style="font-size:11px;justify-content:center;width:100%;color:var(--green)" onclick="doExportExcel()">📊 Экспорт в Excel</button>
+      <div class="sb-stats-actions">
+        <button class="btn btn-ghost utility-btn" onclick="openDocumentation()">📘 Руководство</button>
+        <button class="btn btn-ghost utility-btn" onclick="openBackupModal()">🗄 Резервные копии</button>
+        <button class="btn btn-ghost utility-btn" onclick="doExport()">💾 Сохранить JSON</button>
+        <button class="btn btn-ghost utility-btn" onclick="doExportExcel()">📊 Экспорт в Excel</button>
       </div>
       <div class="sync-box">
-        <div class="sync-head"><div class="sync-title">Синхронизация</div><div class="sync-pill" id="sync-conn-pill">Не подключено</div></div>
-        <input id="sync-client-id" class="sync-input" type="text" placeholder="Yandex Client ID">
-        <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:11px" onclick="showYandexClientIdHelp()">❓ Где взять Client ID</button>
+        <div class="sync-head">
+          <div class="sync-head-main">
+            <div class="sync-title">Яндекс Диск</div>
+            <div class="sync-kicker">Синхронизация через Client ID</div>
+          </div>
+          <div class="sync-pill" id="sync-conn-pill">Не подключено</div>
+        </div>
+        <input id="sync-client-id" class="sync-input" type="text" placeholder="Client ID приложения Яндекса">
+        <button class="btn btn-ghost utility-btn sync-help-btn" onclick="showYandexClientIdHelp()">❓ Где взять Client ID</button>
+        <div class="sync-muted">Client ID берётся в кабинете Yandex OAuth. Redirect URI для этого проекта подставляется автоматически и показан в инструкции.</div>
         <div class="sync-status" id="sync-status-line">Статус: не подключено</div>
         <div class="sync-muted" id="sync-last-line">Последняя синхронизация: —</div>
         <label class="sync-check"><input type="checkbox" id="sync-auto" onchange="toggleAutoSync(this.checked)">Автосинхронизация</label>
         <div class="sync-row">
-          <button class="btn btn-blue" onclick="connectYandexDisk()">🔐 Подключить Яндекс Диск</button>
+          <button class="btn btn-blue" onclick="connectYandexDisk()">🔐 Подключить Яндекс</button>
           <button class="btn btn-ghost" onclick="disconnectYandexDisk()">Отключить</button>
         </div>
-        <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="syncNow('manual')">⟳ Синхронизировать сейчас</button>
+        <button class="btn btn-primary utility-btn" onclick="syncNow('manual')">⟳ Синхронизировать сейчас</button>
       </div>
     </div>
   </div>
@@ -530,8 +569,8 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
         <div class="topbar-sub" id="page-sub">Все категории</div>
       </div>
       <div class="topbar-r">
-        <button class="btn btn-ghost" onclick="doExport()" title="Сохранить все данные в JSON-файл">💾 Сохранить</button>
-        <button class="btn btn-ghost" onclick="doExportExcel()" title="Экспорт отчёта в Excel (4 листа)" style="color:var(--green)">📊 Excel</button>
+        <button class="btn btn-ghost utility-btn--inline" onclick="doExport()" title="Сохранить все данные в JSON-файл">💾 Сохранить</button>
+        <button class="btn btn-ghost utility-btn--inline" onclick="doExportExcel()" title="Экспорт отчёта в Excel (4 листа)">📊 Excel</button>
         <div class="topbar-more">
           <button class="btn btn-ghost topbar-more-toggle" title="Больше действий">⋯</button>
           <div class="topbar-more-menu">
@@ -544,13 +583,13 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
               <div class="theme-btn" id="tbtn-emerald" title="Изумруд" style="background:#071c16;border:1px solid #39f6b8" onclick="setTheme('emerald')"></div>
               <div class="theme-btn" id="tbtn-sunset" title="Закат" style="background:#21100f;border:1px solid #ff9f43" onclick="setTheme('sunset')"></div>
             </div>
-            <label class="btn btn-ghost" style="cursor:pointer" title="Загрузить данные из JSON-файла">📂 Открыть данные<input type="file" id="imp" accept=".json"></label>
+            <label class="btn btn-ghost utility-upload" title="Загрузить данные из JSON-файла">📂 Открыть данные<input type="file" id="imp" accept=".json"></label>
             <button class="btn btn-ghost" onclick="doExportCSV('sales')" title="CSV: продажи">CSV Продажи</button>
             <button class="btn btn-ghost" onclick="doExportCSV('purchases')" title="CSV: поставки">CSV Поставки</button>
             <button class="btn btn-ghost" onclick="doExportCSV('stock')" title="CSV: склад">CSV Склад</button>
-            <button class="btn btn-ghost" onclick="showYandexClientIdHelp()" title="Как получить Client ID для OAuth">❓ Яндекс Client ID</button>
-            <button class="btn btn-ghost" onclick="openDocumentation()" title="Открыть инструкцию на сайте" style="color:var(--yellow)">📘 Документация</button>
-            <button class="btn btn-ghost" onclick="openBackupModal()" title="Резервные копии" style="color:var(--blue)">🗄 Копии</button>
+            <button class="btn btn-ghost" onclick="showYandexClientIdHelp()" title="Как получить Client ID для OAuth">🆔 Client ID Яндекс</button>
+            <button class="btn btn-ghost" onclick="openDocumentation()" title="Открыть руководство по приложению">📘 Руководство</button>
+            <button class="btn btn-ghost" onclick="openBackupModal()" title="Резервные копии">🗄 Резервные копии</button>
             <button class="btn btn-ghost" onclick="doPrint()" title="Печать / Сохранить как PDF">🖨 Печать</button>
           </div>
         </div>
@@ -2688,10 +2727,61 @@ function buildDocumentationHtml(){
     '<p style="font-size:12px;color:var(--text3);margin-top:16px">Обновлено: '+new Date().toLocaleString('ru-RU')+'</p>'
   ].join('');
 }
-function openDocumentation(){
-  var wrap=$('docs-content');
-  if(wrap)wrap.innerHTML=buildDocumentationHtml();
+function getYandexOAuthRedirectUri(){
+  return location.origin+location.pathname.replace(/[^/]*$/,'')+'yandex_oauth_callback.html';
+}
+function buildYandexClientIdHelpHtml(){
+  var redirect=esc(getYandexOAuthRedirectUri());
+  return [
+    '<p><b>Client ID</b> создаётся в кабинете <a href="https://oauth.yandex.com/" target="_blank" rel="noreferrer">Yandex OAuth</a>. В ProfitBox он нужен только как идентификатор приложения для запуска авторизации Яндекс Диска.</p>',
+    '<div class="docs-callout"><strong>Коротко:</strong> создайте OAuth-приложение Яндекса, настройте платформу <b>Web services</b>, сохраните карточку и скопируйте из неё <code>Client ID</code>.</div>',
+    '<h3>Пошагово</h3>',
+    '<ol>',
+      '<li>Откройте форму создания приложения. Для сценария входа через Яндекс ID используйте <a href="https://oauth.yandex.com/client/new/id/" target="_blank" rel="noreferrer">форму Yandex ID</a>. Для других API Яндекса используйте <a href="https://oauth.yandex.com/client/new/" target="_blank" rel="noreferrer">общую форму OAuth</a>.</li>',
+      '<li>Укажите название приложения и выберите платформу <b>Веб-сервисы</b> / <b>Web services</b>.</li>',
+      '<li>В поле <b>Redirect URI</b> укажите: <code>'+redirect+'</code></li>',
+      '<li>Сохраните приложение и откройте его карточку в кабинете OAuth.</li>',
+      '<li>Скопируйте <code>Client ID</code> и вставьте его в поле синхронизации в ProfitBox.</li>',
+    '</ol>',
+    '<h3>Если Client ID не видно</h3>',
+    '<ul>',
+      '<li>Приложение ещё не создано или вы не сохранили форму до конца.</li>',
+      '<li>Вы открыли общий кабинет, но не карточку конкретного приложения.</li>',
+      '<li>Платформа <b>Web services</b> не выбрана, поэтому нужные поля ещё не появились.</li>',
+      '<li>Для вашего кейса нужна другая форма создания приложения: Yandex ID или общая OAuth.</li>',
+    '</ul>',
+    '<h3>Официальные ссылки</h3>',
+    '<ul>',
+      '<li><a href="https://yandex.ru/dev/id/doc/ru/register-client" target="_blank" rel="noreferrer">Регистрация приложения</a></li>',
+      '<li><a href="https://yandex.ru/dev/id/doc/ru/access" target="_blank" rel="noreferrer">Получение OAuth-токена</a></li>',
+      '<li><a href="https://yandex.ru/dev/id/doc/ru/" target="_blank" rel="noreferrer">Документация Yandex ID и OAuth</a></li>',
+    '</ul>',
+    '<p style="font-size:12px;color:var(--text3);margin-top:16px">Актуально на '+new Date().toLocaleDateString('ru-RU')+'. Основано на официальной документации Яндекса.</p>'
+  ].join('');
+}
+function openDocsModal(options){
+  var title=$('docs-title-text'),sub=$('docs-sub-text'),note=$('docs-note'),wrap=$('docs-content');
+  if(title)title.textContent=options.title||'';
+  if(sub)sub.textContent=options.subtitle||'';
+  if(wrap)wrap.innerHTML=options.html||'';
+  if(note){
+    if(options.noteHtml){
+      note.innerHTML=options.noteHtml;
+      note.style.display='block';
+    } else {
+      note.innerHTML='';
+      note.style.display='none';
+    }
+  }
   $('docs-modal').classList.add('show');
+}
+function openDocumentation(){
+  openDocsModal({
+    title:'📘 Руководство ProfitBox',
+    subtitle:'Короткая инструкция по работе с каталогом, историей, складом и аналитикой.',
+    html:buildDocumentationHtml(),
+    noteHtml:'Для подключения Яндекс Диска используйте отдельную кнопку <code>Где взять Client ID</code> в блоке синхронизации.'
+  });
 }
 function closeDocumentation(evt){
   if(evt&&evt.target&&evt.target!==$('docs-modal'))return;
@@ -2958,7 +3048,12 @@ function disconnectYandexDisk(){
   syncSettings.token='';syncRuntime.isConnected=false;saveSyncSettings();setSyncStatus('Не подключено','warn');
 }
 function showYandexClientIdHelp(){
-  alert('Как получить Client ID Яндекс OAuth:\n\n1) Откройте: https://oauth.yandex.ru/client/new\n2) Создайте приложение типа \"Веб-сервисы\".\n3) В Redirect URI укажите: '+location.origin+location.pathname.replace(/[^/]*$/,'')+'yandex_oauth_callback.html'+'\n4) Сохраните приложение и скопируйте Client ID.\n5) Вставьте Client ID в блоке «Синхронизация» и нажмите «Подключить Яндекс Диск».');
+  openDocsModal({
+    title:'🆔 Где взять Client ID',
+    subtitle:'Универсальная инструкция для Yandex OAuth и Yandex ID.',
+    html:buildYandexClientIdHelpHtml(),
+    noteHtml:'<strong>Важно:</strong> в ProfitBox обычно вставляют только <code>Client ID</code>. <code>Client Secret</code> не храните в открытом клиентском коде.'
+  });
 }
 function connectYandexDisk(){
   var cid=($('sync-client-id')&&$('sync-client-id').value||'').trim();
