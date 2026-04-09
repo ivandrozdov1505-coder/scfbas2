@@ -178,6 +178,24 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
 .stock-threshold-toggle{font-size:10px;color:var(--text3);display:inline-flex;align-items:center;gap:4px}
 .stock-off{background:var(--s3);color:var(--text2)}
 
+
+.sync-box{margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--s2);display:flex;flex-direction:column;gap:8px}
+.sync-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.sync-title{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3)}
+.sync-pill{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;border:1px solid var(--border2);color:var(--text2)}
+.sync-pill.on{color:var(--green);border-color:rgba(0,255,179,.35);background:var(--greendim)}
+.sync-status{font-size:11px;color:var(--text2);line-height:1.3}
+.sync-status.state-ok{color:var(--green)}.sync-status.state-err{color:var(--red)}.sync-status.state-warn{color:var(--yellow)}
+.sync-muted{font-size:10px;color:var(--text3)}
+.sync-row{display:flex;gap:6px;flex-wrap:wrap}
+.sync-row .btn{flex:1;min-height:38px;justify-content:center;padding:8px 9px;font-size:11px}
+.sync-input{min-height:36px;font-size:12px;padding:8px 10px}
+.sync-check{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text2)}
+.sync-check input{accent-color:var(--green)}
+.sync-modal-note{font-size:12px;color:var(--text2);margin:6px 0 14px;line-height:1.4}
+.sync-choice-list{display:grid;grid-template-columns:1fr;gap:8px}
+.sync-choice-btn{width:100%;justify-content:flex-start}
+
 /* STATES */
 /* FIX: desktop stock layout */
 @media (min-width:768px){
@@ -399,6 +417,33 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
   </div>
 </div>
 
+<!-- SYNC FIRST MODAL -->
+<div class="modal-overlay" id="sync-first-modal" onclick="closeSyncFirstModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">Синхронизация: первый запуск</div>
+    <div class="sync-modal-note">Выберите источник данных. Перед заменой данных будет создана локальная резервная копия.</div>
+    <div class="sync-choice-list">
+      <button class="btn btn-primary sync-choice-btn" onclick="handleFirstSyncChoice('upload')">⬆ Выгрузить локальные данные в облако</button>
+      <button class="btn btn-blue sync-choice-btn" onclick="handleFirstSyncChoice('download')">⬇ Загрузить облачные данные и заменить локальные</button>
+      <button class="btn btn-ghost sync-choice-btn" onclick="closeSyncFirstModal()">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- SYNC CONFLICT MODAL -->
+<div class="modal-overlay" id="sync-conflict-modal" onclick="closeSyncConflictModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">Конфликт синхронизации</div>
+    <div class="sync-modal-note" id="sync-conflict-text">Облачная и локальная версии изменялись отдельно. Выберите действие.</div>
+    <div class="sync-choice-list">
+      <button class="btn btn-primary sync-choice-btn" onclick="resolveSyncConflict('keep-local')">Оставить локальную версию</button>
+      <button class="btn btn-blue sync-choice-btn" onclick="resolveSyncConflict('take-cloud')">Принять облачную версию</button>
+      <button class="btn btn-ghost sync-choice-btn" onclick="resolveSyncConflict('save-copy')">Сохранить конфликтную копию и принять облачную</button>
+      <button class="btn btn-ghost sync-choice-btn" onclick="closeSyncConflictModal()">Отмена</button>
+    </div>
+  </div>
+</div>
+
 <!-- FOLDER MODAL -->
 <div class="modal-overlay" id="modal">
   <div class="modal">
@@ -420,7 +465,7 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
   <div id="sidebar">
     <div class="sb-logo">
       <div class="logo-mark">P</div>
-      <div><div class="logo-text">ProfitBox</div><div class="logo-sub">v2.4</div></div>
+      <div><div class="logo-text">ProfitBox</div><div class="logo-sub">v2.5</div></div>
     </div>
 
     <div class="sb-section">Навигация</div>
@@ -459,6 +504,19 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
         <button class="btn btn-ghost" style="font-size:11px;justify-content:center;width:100%" onclick="doExport()">💾 Сохранить данные</button>
         <button class="btn btn-ghost" style="font-size:11px;justify-content:center;width:100%;color:var(--green)" onclick="doExportExcel()">📊 Экспорт в Excel</button>
       </div>
+      <div class="sync-box">
+        <div class="sync-head"><div class="sync-title">Синхронизация</div><div class="sync-pill" id="sync-conn-pill">Не подключено</div></div>
+        <input id="sync-client-id" class="sync-input" type="text" placeholder="Yandex Client ID">
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:11px" onclick="showYandexClientIdHelp()">❓ Где взять Client ID</button>
+        <div class="sync-status" id="sync-status-line">Статус: не подключено</div>
+        <div class="sync-muted" id="sync-last-line">Последняя синхронизация: —</div>
+        <label class="sync-check"><input type="checkbox" id="sync-auto" onchange="toggleAutoSync(this.checked)">Автосинхронизация</label>
+        <div class="sync-row">
+          <button class="btn btn-blue" onclick="connectYandexDisk()">🔐 Подключить Яндекс Диск</button>
+          <button class="btn btn-ghost" onclick="disconnectYandexDisk()">Отключить</button>
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="syncNow('manual')">⟳ Синхронизировать сейчас</button>
+      </div>
     </div>
   </div>
 
@@ -490,6 +548,7 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
             <button class="btn btn-ghost" onclick="doExportCSV('sales')" title="CSV: продажи">CSV Продажи</button>
             <button class="btn btn-ghost" onclick="doExportCSV('purchases')" title="CSV: поставки">CSV Поставки</button>
             <button class="btn btn-ghost" onclick="doExportCSV('stock')" title="CSV: склад">CSV Склад</button>
+            <button class="btn btn-ghost" onclick="showYandexClientIdHelp()" title="Как получить Client ID для OAuth">❓ Яндекс Client ID</button>
             <button class="btn btn-ghost" onclick="openDocumentation()" title="Открыть инструкцию на сайте" style="color:var(--yellow)">📘 Документация</button>
             <button class="btn btn-ghost" onclick="openBackupModal()" title="Резервные копии" style="color:var(--blue)">🗄 Копии</button>
             <button class="btn btn-ghost" onclick="doPrint()" title="Печать / Сохранить как PDF">🖨 Печать</button>
@@ -525,6 +584,15 @@ var stockFilters={folderId:'all',problemOnly:false,groupByFolder:false,sort:'sto
 var lastDeletedAction=null;
 var currentImageData='',currentImageError='';
 var landscapePhoneMq=window.matchMedia('(orientation: landscape) and (max-width: 900px)');
+var APP_VERSION='2.5';
+var MAIN_STORAGE_KEY='ptv5';
+var STATE_META_KEY='ptv5_state_meta';
+var SYNC_CFG_KEY='ptv5_sync_cfg';
+var deviceId=localStorage.getItem('ptv5_device_id')||('dev-'+Math.random().toString(36).slice(2,10));
+localStorage.setItem('ptv5_device_id',deviceId);
+var stateMeta={updatedAt:null,deviceId:deviceId,revision:''};
+var syncSettings={token:'',clientId:'',autoSync:false,lastSuccessAt:'',lastSyncedRevision:'',firstSyncDone:false};
+var syncRuntime={status:'Не подключено',statusType:'warn',isConnected:false,isSyncing:false,dirty:false,lastError:'',pendingTimer:null,lastTouchTs:0,conflict:null,firstSyncPending:false};
 
 // ══════════════════════════════════════════════════════
 // UTILS
@@ -771,21 +839,26 @@ var filteredProducts=function(){
 function persist(){
   rebuildFlatOpsFromDocs();
   saveMainStorage();
+  markDirty();
+  maybeScheduleAutoSync('persist');
   var f=$('flash');if(f){f.classList.add('on');setTimeout(function(){f.classList.remove('on');},1500);}
   liveUpdate();
 }
 function loadData(){
   var raw=null;
-  var keys=['ptv5','ptv4','ptv3','ptv2','ptv1'];
+  var keys=[MAIN_STORAGE_KEY,'ptv4','ptv3','ptv2','ptv1'];
   for(var k=0;k<keys.length;k++){try{raw=localStorage.getItem(keys[k]);if(raw)break;}catch(e){}}
-  try{
-    if(raw){
-      var d=JSON.parse(raw);
-      if(Array.isArray(d)){products=d;folders=[];sales=[];purchases=[];expenseOps=[];customNotes=[];}
-      else{products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];saleDocs=d.saleDocs||[];supplyDocs=d.supplyDocs||[];expenseOps=d.expenseOps||[];customNotes=d.customNotes||[];nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;nextExpenseId=d.nextExpenseId||expenseOps.length+1;nextCustomNoteId=d.nextCustomNoteId||customNotes.length+1;nextSaleDocId=d.nextSaleDocId||saleDocs.length+1;nextSupplyDocId=d.nextSupplyDocId||supplyDocs.length+1;nextSaleLineId=d.nextSaleLineId||nextSaleId;nextSupplyLineId=d.nextSupplyLineId||nextPurchaseId;if(d.theme)currentTheme=d.theme;if(d.discountType)discountType=d.discountType;if(d.analyticsRange)analyticsRange=d.analyticsRange;}
-    }
-  }catch(e){}
+  if(raw){
+    try{deserializeAppState(JSON.parse(raw),{source:'storage'});}catch(e){}
+  }
   migrateData();
+  hydrateSyncSettings();
+  try{
+    var sm=JSON.parse(localStorage.getItem(STATE_META_KEY)||'null');
+    if(sm&&sm.revision)stateMeta=sm;
+    else stateMeta=getStateMeta();
+  }catch(e){stateMeta=getStateMeta();}
+  syncRuntime.dirty=false;
   saveMainStorage();
 }
 
@@ -2626,7 +2699,7 @@ function closeDocumentation(evt){
 }
 function doExport(){
   rebuildFlatOpsFromDocs();
-  var data={products:products,folders:folders,sales:sales,purchases:purchases,saleDocs:saleDocs,supplyDocs:supplyDocs,expenseOps:expenseOps,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextExpenseId:nextExpenseId,nextCustomNoteId:nextCustomNoteId,nextSaleDocId:nextSaleDocId,nextSupplyDocId:nextSupplyDocId,nextSaleLineId:nextSaleLineId,nextSupplyLineId:nextSupplyLineId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange};
+  var data=serializeAppState();
   var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   var url=URL.createObjectURL(blob);
   var a=document.createElement('a');a.href=url;a.download='profit_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url);
@@ -2745,14 +2818,175 @@ $('imp').addEventListener('change',function(e){
   reader.onload=function(ev){
     try{
       var d=JSON.parse(ev.target.result);
-      if(Array.isArray(d)){products=d;folders=[];sales=[];purchases=[];saleDocs=[];supplyDocs=[];expenseOps=[];customNotes=[];nextId=d.length+1;nextFolderId=1;nextSaleId=1;nextPurchaseId=1;nextExpenseId=1;nextCustomNoteId=1;}
-      else{products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];saleDocs=d.saleDocs||[];supplyDocs=d.supplyDocs||[];expenseOps=d.expenseOps||[];customNotes=d.customNotes||[];nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;nextExpenseId=d.nextExpenseId||expenseOps.length+1;nextCustomNoteId=d.nextCustomNoteId||customNotes.length+1;nextSaleDocId=d.nextSaleDocId||saleDocs.length+1;nextSupplyDocId=d.nextSupplyDocId||supplyDocs.length+1;nextSaleLineId=d.nextSaleLineId||nextSaleId;nextSupplyLineId=d.nextSupplyLineId||nextPurchaseId;}
+      deserializeAppState(d,{source:'import'});
       migrateData();
       editId=null;selectedFolder=null;persist();render();
     }catch(err){alert('Ошибка: '+err.message);}
   };
   reader.readAsText(file);this.value='';
 });
+
+
+// ══════════════════════════════════════════════════════
+// CLOUD SYNC (YANDEX DISK)
+// ══════════════════════════════════════════════════════
+var YD_API='https://cloud-api.yandex.net/v1/disk';
+var SYNC_FOLDER='disk:/Apps/ProfitBox';
+var SYNC_FILE=SYNC_FOLDER+'/profitbox-sync.json';
+function hydrateSyncSettings(){
+  try{var cfg=JSON.parse(localStorage.getItem(SYNC_CFG_KEY)||'null');if(cfg)syncSettings=Object.assign(syncSettings,cfg);}catch(e){}
+  syncRuntime.isConnected=!!syncSettings.token;
+  if(syncSettings.lastSyncedRevision&&stateMeta.revision===syncSettings.lastSyncedRevision)syncRuntime.dirty=false;
+  refreshSyncUI();
+}
+function saveSyncSettings(){
+  try{localStorage.setItem(SYNC_CFG_KEY,JSON.stringify(syncSettings));localStorage.setItem(STATE_META_KEY,JSON.stringify(stateMeta));}catch(e){}
+}
+function setSyncStatus(msg,type,err){
+  syncRuntime.status=msg;syncRuntime.statusType=type||'warn';syncRuntime.lastError=err||'';refreshSyncUI();
+}
+function refreshSyncUI(){
+  var pill=$('sync-conn-pill'),status=$('sync-status-line'),last=$('sync-last-line'),auto=$('sync-auto'),cid=$('sync-client-id');
+  if(pill){pill.textContent=syncRuntime.isConnected?'Подключено':'Не подключено';pill.className='sync-pill'+(syncRuntime.isConnected?' on':'');}
+  if(status){status.className='sync-status '+(syncRuntime.statusType==='ok'?'state-ok':syncRuntime.statusType==='err'?'state-err':'state-warn');status.textContent='Статус: '+(navigator.onLine?syncRuntime.status:'Офлайн');}
+  if(last)last.textContent='Последняя синхронизация: '+(syncSettings.lastSuccessAt?new Date(syncSettings.lastSuccessAt).toLocaleString('ru-RU'):'—');
+  if(auto)auto.checked=!!syncSettings.autoSync;
+  if(cid&&document.activeElement!==cid)cid.value=syncSettings.clientId||'';
+}
+function toggleAutoSync(v){syncSettings.autoSync=!!v;saveSyncSettings();setSyncStatus(syncSettings.autoSync?'Автосинхронизация включена':'Автосинхронизация выключена','warn');if(v)maybeScheduleAutoSync('toggle');}
+function yandexHeaders(){return {'Authorization':'OAuth '+syncSettings.token,'Content-Type':'application/json'};}
+function normalizeSyncError(err){
+  var m=String(err&&err.message||err||'');
+  if(/401|403/.test(m))return 'Сессия Яндекс Диска истекла. Подключите заново.';
+  if(/429/.test(m))return 'Лимит запросов Яндекс Диска. Повторите позже.';
+  if(/Failed to fetch|NetworkError/.test(m))return 'Нет соединения с сетью.';
+  return m||'Не удалось выполнить синхронизацию.';
+}
+function maybeScheduleAutoSync(reason){
+  if(!syncSettings.autoSync||!syncRuntime.isConnected)return;
+  if(syncRuntime.pendingTimer)clearTimeout(syncRuntime.pendingTimer);
+  syncRuntime.lastTouchTs=Date.now();
+  syncRuntime.pendingTimer=setTimeout(function(){syncRuntime.pendingTimer=null;syncNow(reason||'auto');},15000);
+}
+function ensureCloudFolder(){
+  return fetch(YD_API+'/resources?path='+encodeURIComponent(SYNC_FOLDER),{headers:yandexHeaders()}).then(function(r){
+    if(r.status===404)return fetch(YD_API+'/resources?path='+encodeURIComponent(SYNC_FOLDER),{method:'PUT',headers:yandexHeaders()});
+    return r;
+  });
+}
+function uploadStateToCloud(dataObj,meta){
+  var payload={format:'profitbox-sync-v1',appVersion:APP_VERSION,meta:meta||getStateMeta(dataObj),state:dataObj};
+  return ensureCloudFolder().then(function(){
+    return fetch(YD_API+'/resources/upload?path='+encodeURIComponent(SYNC_FILE)+'&overwrite=true',{headers:yandexHeaders()});
+  }).then(function(r){if(!r.ok)throw new Error('upload-link-'+r.status);return r.json();}).then(function(link){
+    return fetch(link.href,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  }).then(function(r){if(!r.ok)throw new Error('upload-'+r.status);return payload;});
+}
+function downloadStateFromCloud(){
+  return fetch(YD_API+'/resources?path='+encodeURIComponent(SYNC_FILE),{headers:yandexHeaders()}).then(function(r){
+    if(r.status===404)return null;
+    if(!r.ok)throw new Error('meta-'+r.status);
+    return fetch(YD_API+'/resources/download?path='+encodeURIComponent(SYNC_FILE),{headers:yandexHeaders()});
+  }).then(function(r){if(!r)return null;if(!r.ok)throw new Error('download-link-'+r.status);return r.json();}).then(function(link){
+    if(!link)return null;
+    return fetch(link.href,{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('download-'+r.status);return r.json();});
+  }).then(function(payload){
+    if(!payload)return null;
+    if(payload&&payload.state&&validateAppStateData(payload.state))return payload;
+    if(validateAppStateData(payload))return {format:'legacy',meta:{updatedAt:new Date().toISOString(),deviceId:'legacy',revision:stableHash(JSON.stringify(payload))},state:payload};
+    throw new Error('broken-cloud-json');
+  });
+}
+function openSyncFirstModal(cloudPayload){syncRuntime.firstSyncPending=true;syncRuntime.conflict={cloud:cloudPayload};$('sync-first-modal').classList.add('show');}
+function closeSyncFirstModal(evt){if(evt&&evt.target&&evt.target!==$('sync-first-modal'))return;$('sync-first-modal').classList.remove('show');syncRuntime.firstSyncPending=false;}
+function handleFirstSyncChoice(mode){
+  var cloud=syncRuntime.conflict&&syncRuntime.conflict.cloud?syncRuntime.conflict.cloud:null;
+  closeSyncFirstModal();
+  if(mode==='download'&&cloud&&cloud.state){createBackup('manual');deserializeAppState(cloud.state,{source:'cloud'});migrateData();stateMeta=cloud.meta||getStateMeta(cloud.state);saveMainStorage();applyTheme();render();syncRuntime.dirty=false;syncSettings.lastSyncedRevision=stateMeta.revision;syncSettings.firstSyncDone=true;syncSettings.lastSuccessAt=new Date().toISOString();saveSyncSettings();setSyncStatus('Синхронизировано','ok');return;}
+  syncNow('first-upload');
+}
+function openSyncConflictModal(localMeta,cloudPayload){
+  syncRuntime.conflict={localMeta:localMeta,cloud:cloudPayload};
+  var txt=$('sync-conflict-text');
+  if(txt){txt.textContent='Локальная версия: '+new Date(localMeta.updatedAt||Date.now()).toLocaleString('ru-RU')+' · Облачная версия: '+new Date(cloudPayload.meta.updatedAt||Date.now()).toLocaleString('ru-RU');}
+  $('sync-conflict-modal').classList.add('show');
+}
+function closeSyncConflictModal(evt){if(evt&&evt.target&&evt.target!==$('sync-conflict-modal'))return;$('sync-conflict-modal').classList.remove('show');}
+function resolveSyncConflict(mode){
+  var c=syncRuntime.conflict;if(!c||!c.cloud)return;
+  closeSyncConflictModal();
+  createBackup('manual');
+  if(mode==='keep-local'){syncNow('conflict-local');return;}
+  if(mode==='save-copy')createBackup('manual');
+  deserializeAppState(c.cloud.state,{source:'cloud'});migrateData();stateMeta=c.cloud.meta||getStateMeta(c.cloud.state);saveMainStorage();applyTheme();render();syncRuntime.dirty=false;syncSettings.lastSyncedRevision=stateMeta.revision;syncSettings.lastSuccessAt=new Date().toISOString();saveSyncSettings();setSyncStatus('Синхронизировано','ok');
+}
+function syncNow(reason){
+  if(syncRuntime.isSyncing)return Promise.resolve(false);
+  if(!syncSettings.token){setSyncStatus('Не подключено','warn');return Promise.resolve(false);}
+  if(!navigator.onLine){setSyncStatus('Офлайн','warn');return Promise.resolve(false);}
+  syncRuntime.isSyncing=true;setSyncStatus('Синхронизируется…','warn');
+  var localData=serializeAppState();
+  var localMeta=getStateMeta(localData);
+  stateMeta=localMeta;
+  return downloadStateFromCloud().then(function(cloud){
+    if(!syncSettings.firstSyncDone){
+      if(cloud&&cloud.state){openSyncFirstModal(cloud);throw new Error('first-sync-choice');}
+      return uploadStateToCloud(localData,localMeta).then(function(){syncSettings.firstSyncDone=true;});
+    }
+    if(!cloud)return uploadStateToCloud(localData,localMeta);
+    var cloudMeta=cloud.meta||{};
+    var localChanged=syncSettings.lastSyncedRevision!==localMeta.revision;
+    var cloudChanged=syncSettings.lastSyncedRevision!==cloudMeta.revision;
+    if(cloudMeta.revision===localMeta.revision)return null;
+    if(cloudMeta.updatedAt>localMeta.updatedAt&&!localChanged){
+      createBackup('manual');
+      deserializeAppState(cloud.state,{source:'cloud'});migrateData();stateMeta=cloudMeta;saveMainStorage();applyTheme();render();syncRuntime.dirty=false;return null;
+    }
+    if(localMeta.updatedAt>=cloudMeta.updatedAt&&!cloudChanged)return uploadStateToCloud(localData,localMeta);
+    openSyncConflictModal(localMeta,cloud);throw new Error('sync-conflict');
+  }).then(function(){
+    syncRuntime.dirty=false;syncRuntime.isSyncing=false;syncSettings.lastSuccessAt=new Date().toISOString();syncSettings.lastSyncedRevision=stateMeta.revision;saveSyncSettings();setSyncStatus('Синхронизировано','ok');
+    return true;
+  }).catch(function(err){
+    syncRuntime.isSyncing=false;
+    if(/first-sync-choice|sync-conflict/.test(String(err&&err.message||'')))return false;
+    setSyncStatus('Ошибка синхронизации','err',normalizeSyncError(err));
+    return false;
+  });
+}
+function disconnectYandexDisk(){
+  syncSettings.token='';syncRuntime.isConnected=false;saveSyncSettings();setSyncStatus('Не подключено','warn');
+}
+function showYandexClientIdHelp(){
+  alert('Как получить Client ID Яндекс OAuth:\n\n1) Откройте: https://oauth.yandex.ru/client/new\n2) Создайте приложение типа \"Веб-сервисы\".\n3) В Redirect URI укажите: '+location.origin+location.pathname.replace(/[^/]*$/,'')+'yandex_oauth_callback.html'+'\n4) Сохраните приложение и скопируйте Client ID.\n5) Вставьте Client ID в блоке «Синхронизация» и нажмите «Подключить Яндекс Диск».');
+}
+function connectYandexDisk(){
+  var cid=($('sync-client-id')&&$('sync-client-id').value||'').trim();
+  if(!cid){alert('Укажите Client ID Яндекс OAuth.');return;}
+  syncSettings.clientId=cid;saveSyncSettings();
+  var redirect=location.origin+location.pathname.replace(/[^/]*$/,'')+'yandex_oauth_callback.html';
+  var state='pb_'+Math.random().toString(36).slice(2,10);
+  localStorage.setItem('ptv5_oauth_state',state);
+  var url='https://oauth.yandex.ru/authorize?response_type=token&client_id='+encodeURIComponent(cid)+'&redirect_uri='+encodeURIComponent(redirect)+'&state='+encodeURIComponent(state);
+  var w=window.open(url,'yd_oauth','width=520,height=700');
+  if(!w){alert('Браузер заблокировал окно авторизации.');return;}
+}
+window.addEventListener('message',function(e){
+  if(!e||!e.data||e.data.type!=='profitbox-yandex-oauth')return;
+  if(e.origin!==location.origin)return;
+  var expected=localStorage.getItem('ptv5_oauth_state');
+  if(expected&&e.data.state!==expected){setSyncStatus('Ошибка авторизации','err');return;}
+  if(e.data.error){setSyncStatus('Ошибка авторизации','err',e.data.error);return;}
+  syncSettings.token=e.data.access_token||'';
+  syncRuntime.isConnected=!!syncSettings.token;
+  syncSettings.firstSyncDone=false;
+  saveSyncSettings();
+  setSyncStatus(syncRuntime.isConnected?'Подключено к Яндекс Диску':'Не подключено',syncRuntime.isConnected?'ok':'warn');
+  if(syncRuntime.isConnected)syncNow('connect');
+});
+window.addEventListener('online',function(){refreshSyncUI();maybeScheduleAutoSync('online');});
+window.addEventListener('offline',function(){setSyncStatus('Офлайн','warn');});
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')maybeScheduleAutoSync('focus');});
 
 // ══════════════════════════════════════════════════════
 // EVENTS
@@ -2805,15 +3039,49 @@ var MAX_BACKUPS=10;
 var AUTO_BACKUP_INTERVAL=2*60*60*1000; // 2 hours
 var LAST_AUTO_KEY='ptv5_last_auto_backup';
 
-function snapshotDataObject(){
+function serializeAppState(){
+  rebuildFlatOpsFromDocs();
   return {products:products,folders:folders,sales:sales,purchases:purchases,saleDocs:saleDocs,supplyDocs:supplyDocs,expenseOps:expenseOps,customNotes:customNotes,nextId:nextId,nextFolderId:nextFolderId,nextSaleId:nextSaleId,nextPurchaseId:nextPurchaseId,nextExpenseId:nextExpenseId,nextCustomNoteId:nextCustomNoteId,nextSaleDocId:nextSaleDocId,nextSupplyDocId:nextSupplyDocId,nextSaleLineId:nextSaleLineId,nextSupplyLineId:nextSupplyLineId,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange};
 }
+function snapshotDataObject(){
+  return serializeAppState();
+}
+function validateAppStateData(d){
+  if(!d||typeof d!=='object')return false;
+  var keys=['products','folders','sales','purchases','saleDocs','supplyDocs','expenseOps','customNotes'];
+  for(var i=0;i<keys.length;i++)if(!Array.isArray(d[keys[i]]))return false;
+  return true;
+}
+function deserializeAppState(d){
+  if(Array.isArray(d)){d={products:d,folders:[],sales:[],purchases:[],saleDocs:[],supplyDocs:[],expenseOps:[],customNotes:[],nextId:d.length+1,nextFolderId:1,nextSaleId:1,nextPurchaseId:1,nextExpenseId:1,nextCustomNoteId:1,nextSaleDocId:1,nextSupplyDocId:1,nextSaleLineId:1,nextSupplyLineId:1,theme:currentTheme,discountType:discountType,analyticsRange:analyticsRange};}
+  if(!validateAppStateData(d))throw new Error('Некорректная структура данных.');
+  products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];saleDocs=d.saleDocs||[];supplyDocs=d.supplyDocs||[];expenseOps=d.expenseOps||[];customNotes=d.customNotes||[];
+  nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;nextExpenseId=d.nextExpenseId||expenseOps.length+1;nextCustomNoteId=d.nextCustomNoteId||customNotes.length+1;nextSaleDocId=d.nextSaleDocId||saleDocs.length+1;nextSupplyDocId=d.nextSupplyDocId||supplyDocs.length+1;nextSaleLineId=d.nextSaleLineId||nextSaleId;nextSupplyLineId=d.nextSupplyLineId||nextPurchaseId;
+  if(d.theme)currentTheme=d.theme;if(d.discountType)discountType=d.discountType;if(d.analyticsRange)analyticsRange=d.analyticsRange;
+}
+function stableHash(str){
+  var h=2166136261;
+  for(var i=0;i<str.length;i++){h^=str.charCodeAt(i);h+=(h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24);} 
+  return ('0000000'+(h>>>0).toString(16)).slice(-8);
+}
+function getStateMeta(dataObj){
+  var data=dataObj||serializeAppState();
+  var revision=stableHash(JSON.stringify(data));
+  return {updatedAt:new Date().toISOString(),deviceId:deviceId,revision:revision};
+}
 function saveMainStorage(){
-  try{localStorage.setItem('ptv5',JSON.stringify(snapshotDataObject()));}catch(e){}
+  try{var snap=serializeAppState();localStorage.setItem(MAIN_STORAGE_KEY,JSON.stringify(snap));if(!stateMeta.revision)stateMeta=getStateMeta(snap);localStorage.setItem(STATE_META_KEY,JSON.stringify(stateMeta));}catch(e){}
 }
 function getBackupData(){
-  rebuildFlatOpsFromDocs();
-  return JSON.stringify(snapshotDataObject());
+  return JSON.stringify(serializeAppState());
+}
+function markDirty(){
+  stateMeta=getStateMeta();
+  syncRuntime.dirty=true;
+  syncRuntime.status='Есть локальные изменения';
+  syncRuntime.statusType='warn';
+  saveSyncSettings();
+  refreshSyncUI();
 }
 
 function loadBackups(){
@@ -2865,10 +3133,7 @@ function restoreBackup(ts){
   if(!confirm('Восстановить копию от '+entry.label+'?\n\nТекущие данные будут перезаписаны.'))return;
   try{
     var d=JSON.parse(entry.data);
-    products=d.products||[];folders=d.folders||[];sales=d.sales||[];purchases=d.purchases||[];saleDocs=d.saleDocs||[];supplyDocs=d.supplyDocs||[];expenseOps=d.expenseOps||[];customNotes=d.customNotes||[];
-    nextId=d.nextId||products.length+1;nextFolderId=d.nextFolderId||folders.length+1;
-    nextSaleId=d.nextSaleId||sales.length+1;nextPurchaseId=d.nextPurchaseId||purchases.length+1;nextExpenseId=d.nextExpenseId||expenseOps.length+1;nextCustomNoteId=d.nextCustomNoteId||customNotes.length+1;nextSaleDocId=d.nextSaleDocId||saleDocs.length+1;nextSupplyDocId=d.nextSupplyDocId||supplyDocs.length+1;nextSaleLineId=d.nextSaleLineId||nextSaleId;nextSupplyLineId=d.nextSupplyLineId||nextPurchaseId;
-    if(d.theme)currentTheme=d.theme;if(d.discountType)discountType=d.discountType;if(d.analyticsRange)analyticsRange=d.analyticsRange;
+    deserializeAppState(d,{source:'backup'});
     migrateData();
     persist();applyTheme();render();
     closeBackupModal();
@@ -2943,6 +3208,7 @@ function initMobileBanners(){
   });
 }
 setTimeout(tryAutoBackup,3000);
+setTimeout(refreshSyncUI,50);
 // Periodic check every 15 min
 setInterval(tryAutoBackup,15*60*1000);
 
@@ -2957,6 +3223,7 @@ setTimeout(initMobileBanners,50);
 if(landscapePhoneMq&&landscapePhoneMq.addEventListener)landscapePhoneMq.addEventListener('change',applyOrientationLayout);
 else if(landscapePhoneMq&&landscapePhoneMq.addListener)landscapePhoneMq.addListener(applyOrientationLayout);
 window.addEventListener('resize',applyOrientationLayout);
+if(syncSettings.autoSync&&syncRuntime.isConnected)syncNow('startup');
 </script>
 </body>
 </html>
