@@ -507,6 +507,7 @@ input::placeholder,.notes-area::placeholder{color:var(--text3)}
       <div class="sync-box">
         <div class="sync-head"><div class="sync-title">Синхронизация</div><div class="sync-pill" id="sync-conn-pill">Не подключено</div></div>
         <input id="sync-client-id" class="sync-input" type="text" placeholder="Yandex Client ID">
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:11px" onclick="showYandexClientIdHelp()">❓ Где взять Client ID</button>
         <div class="sync-status" id="sync-status-line">Статус: не подключено</div>
         <div class="sync-muted" id="sync-last-line">Последняя синхронизация: —</div>
         <label class="sync-check"><input type="checkbox" id="sync-auto" onchange="toggleAutoSync(this.checked)">Автосинхронизация</label>
@@ -2954,6 +2955,9 @@ function syncNow(reason){
 }
 function disconnectYandexDisk(){
   syncSettings.token='';syncRuntime.isConnected=false;saveSyncSettings();setSyncStatus('Не подключено','warn');
+}
+function showYandexClientIdHelp(){
+  alert('Как получить Client ID Яндекс OAuth:\n\n1) Откройте: https://oauth.yandex.ru/client/new\n2) Создайте приложение типа \"Веб-сервисы\".\n3) В Redirect URI укажите: '+location.origin+location.pathname.replace(/[^/]*$/,'')+'yandex_oauth_callback.html'+'\n4) Сохраните приложение и скопируйте Client ID.\n5) Вставьте Client ID в блоке «Синхронизация» и нажмите «Подключить Яндекс Диск».');
 }
 function connectYandexDisk(){
   var cid=($('sync-client-id')&&$('sync-client-id').value||'').trim();
