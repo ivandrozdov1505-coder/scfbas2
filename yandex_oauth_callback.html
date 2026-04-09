@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProfitBox OAuth Callback</title>
+</head>
+<body>
+<script>
+(function(){
+  // OAuth callback: отправляем токен обратно в основное окно приложения.
+  var hash=(location.hash||'').replace(/^#/,'');
+  var params=new URLSearchParams(hash);
+  var payload={
+    type:'profitbox-yandex-oauth',
+    access_token:params.get('access_token')||'',
+    state:params.get('state')||'',
+    error:params.get('error_description')||params.get('error')||''
+  };
+  if(window.opener)window.opener.postMessage(payload,location.origin);
+  setTimeout(function(){window.close();},50);
+})();
+</script>
+</body>
+</html>
