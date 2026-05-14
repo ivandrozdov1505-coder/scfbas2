@@ -1983,7 +1983,6 @@ var CAL = {
 };
 
 function toggleCal(){ CAL.toggle(); }
-function formatDateRu(iso){ return CAL.fmt(iso); }
 function initCalButtons(){ CAL.init(); }
 // keep calSelectedDate in sync for addSale()
 Object.defineProperty(window,'calSelectedDate',{get:function(){return CAL.selected;},set:function(v){CAL.selected=v;}});
