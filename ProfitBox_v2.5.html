@@ -685,10 +685,11 @@ function getHistoryExpenses(includeLegacy){
 }
 function buildFolderHistoryProfit(filteredSales,expensesInRange){
   var bucketMap={};
+  var fMap = {}; folders.forEach(function(f) { fMap[f.id] = f; });
   function folderMetaByProduct(productId){
     var p=productById(productId);
     if(!p||!p.folderId)return {key:'no-folder',name:'Без папки',color:'#5a6380'};
-    var f=folderById(p.folderId);
+    var f=fMap[p.folderId];
     if(!f)return {key:'no-folder',name:'Без папки',color:'#5a6380'};
     return {key:'f-'+f.id,name:f.name,color:f.color};
   }
@@ -849,8 +850,9 @@ var filteredProducts=function(){
   var list=selectedFolder===null?products:products.filter(function(p){return p.folderId===selectedFolder;});
   if(searchQuery){
     var q=searchQuery.toLowerCase();
+    var fMap = {}; folders.forEach(function(f) { fMap[f.id] = f; });
     list=list.filter(function(p){
-      var f=p.folderId?folderById(p.folderId):null;
+      var f=p.folderId?fMap[p.folderId]:null;
       return p.name.toLowerCase().indexOf(q)>=0||productArticle(p).indexOf(q)>=0||(f&&f.name.toLowerCase().indexOf(q)>=0);
     });
   }
@@ -1095,10 +1097,11 @@ function renderTable(list,t){
     tbody.innerHTML='<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Нет товаров'+(searchQuery?' по запросу "'+esc(searchQuery)+'"':'')+'</div></div>';
     $('tfoot').style.display='none';return;
   }
+  var fMap = {}; folders.forEach(function(f) { fMap[f.id] = f; });
   list.forEach(function(p,i){
     var pr=(p.retail-p.wholesale)*p.qty-p.expenses;
     var m=p.retail*p.qty>0?(pr/(p.retail*p.qty))*100:0;
-    var folder=p.folderId?folderById(p.folderId):null;
+    var folder=p.folderId?fMap[p.folderId]:null;
     var isE=editId===p.id;
     var row=document.createElement('div');
     row.className='tr tgrid-p'+(i%2===0?' even':'')+(isE?' editing':'');
@@ -2162,11 +2165,12 @@ function renderStock(){
     var av=defaultStockSortValue(a,metric),bv=defaultStockSortValue(b,metric);
     return sDesc?(bv-av):(av-bv);
   });
+  var fMap = {}; folders.forEach(function(f) { fMap[f.id] = f; });
   if(stockFilters.groupByFolder){
     var grp={};
     sorted.forEach(function(p){
       var fid=p.folderId||'none';
-      if(!grp[fid])grp[fid]={name:(p.folderId?(folderById(p.folderId)||{name:'—'}).name:'Без папки'),products:0,qty:0,wh:0,ret:0};
+      if(!grp[fid])grp[fid]={name:(p.folderId?(fMap[p.folderId]||{name:'—'}).name:'Без папки'),products:0,qty:0,wh:0,ret:0};
       grp[fid].products++;
       grp[fid].qty+=(p.stock||0);
       grp[fid].wh+=(p.stock||0)*(p.wholesale||0);
@@ -2208,7 +2212,7 @@ function renderStock(){
       velocity=sold/days;
     }
     var daysLeft=velocity>0?Math.floor(stock/velocity):null;
-    var folder=p.folderId?folderById(p.folderId):null;
+    var folder=p.folderId?fMap[p.folderId]:null;
     var folderCell=folder
       ?'<div class="folder-pill" style="background:'+folder.color+'22;border:1px solid '+folder.color+'33"><div class="fp-dot" style="background:'+folder.color+'"></div><span class="fp-name">'+esc(folder.name)+'</span></div>'
       :'<span style="color:var(--text3);font-size:11px">—</span>';
@@ -2823,8 +2827,9 @@ function doExportExcel(){
   // Sheet 1: Товары
   var pRows=[row(['#','Название','Папка','Опт (₽)','Розница (₽)','Кол-во','Расходы (₽)','Остаток','Прибыль (₽)','Маржа (%)','Заметка'],true)];
   var pTotalQty=0,pTotalExp=0,pTotalProfit=0;
+  var fMap = {}; folders.forEach(function(f) { fMap[f.id] = f; });
   products.forEach(function(p,i){
-    var f=p.folderId?folderById(p.folderId):null;
+    var f=p.folderId?fMap[p.folderId]:null;
     var profit=(p.retail-p.wholesale)*p.qty-p.expenses;
     var margin=p.retail*p.qty>0?Math.round(profit/(p.retail*p.qty)*1000)/10:0;
     pRows.push(row([i+1,p.name,f?f.name:'',round2(p.wholesale),round2(p.retail),round2(p.qty),round2(p.expenses),round2(p.stock||0),round2(profit),round2(margin),p.notes||'']));
@@ -2863,7 +2868,7 @@ function doExportExcel(){
   // Sheet 4: Склад
   var stRows=[row(['#','Товар','Папка','Куплено','Продано','Остаток','Порог «мало»','Статус'],true)];
   products.forEach(function(p,i){
-    var f=p.folderId?folderById(p.folderId):null;
+    var f=p.folderId?fMap[p.folderId]:null;
     var sold=sales.filter(function(s){return s.productId===p.id;}).reduce(function(sum,s){return sum+s.qty;},0);
     var stock=p.stock||0;var min=minStockValue(p);
     var status=stock===0?'Нет':'В норме';
@@ -2893,7 +2898,8 @@ function doExportCSV(kind){
     purchases.forEach(function(pu){var p=productById(pu.productId);if(!p)return;rows.push([pu.date,p.name,pu.qty,pu.price,pu.qty*pu.price,pu.supplier||'',pu.note||'']);});
   }else{
     rows.push(['product','folder','stock','minStock','minStockEnabled','wholesale','retail','stockValueWholesale','stockValueRetail']);
-    products.forEach(function(p){var f=p.folderId?folderById(p.folderId):null;rows.push([p.name,f?f.name:'',p.stock||0,minStockValue(p),minStockEnabled(p)?1:0,p.wholesale||0,p.retail||0,(p.stock||0)*(p.wholesale||0),(p.stock||0)*(p.retail||0)]);});
+    var fMap = {}; folders.forEach(function(f) { fMap[f.id] = f; });
+    products.forEach(function(p){var f=p.folderId?fMap[p.folderId]:null;rows.push([p.name,f?f.name:'',p.stock||0,minStockValue(p),minStockEnabled(p)?1:0,p.wholesale||0,p.retail||0,(p.stock||0)*(p.wholesale||0),(p.stock||0)*(p.retail||0)]);});
   }
   var csv=rows.map(function(r){return r.map(csvEscape).join(';');}).join('\n');
   var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
